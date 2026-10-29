@@ -11,5 +11,5 @@ export function validateStore(input) {
 }
 export function planImport(rows, existing) {
  const seen=new Set();
- return rows.map((row,i)=>{try{const item=validateStore(row);if(seen.has(item.code))return {row:i+2,kind:'duplicate',message:'Código repetido no arquivo',item};seen.add(item.code);return {row:i+2,kind:existing.has(item.code)?'existing':'new',item};}catch(e){return {row:i+2,kind:'invalid',message:e.message};}});
+ return rows.map((row,i)=>{try{const item=validateStore(row);if(seen.has(item.code))return {row:i+2,kind:'duplicate',message:'Código repetido no arquivo',item};seen.add(item.code);return {row:i+2,kind:existing.has(item.code)?'existing':'new',item:{...item,initialStage:row.initialStage??0,source:row.source||{}}};}catch(e){return {row:i+2,kind:'invalid',message:e.message};}});
 }
