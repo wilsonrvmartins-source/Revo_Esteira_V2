@@ -1,25 +1,519 @@
-import {test,before,after} from 'node:test';import assert from 'node:assert/strict';import {spawn} from 'node:child_process';import{mkdtemp,rm}from'node:fs/promises';import{tmpdir}from'node:os';import{join}from'node:path';import ExcelJS from'exceljs';
-const port=3219,base='http://127.0.0.1:'+port;let child,dir,admin='',viewer='',operator='',id,logs='';
-async function request(path,{cookie=admin,method='GET',body,headers={}}={}){const r=await fetch(base+'/api'+path,{method,headers:{...(body instanceof FormData?{}:{'Content-Type':'application/json'}),Cookie:cookie,...headers},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});const data=r.headers.get('content-type')?.includes('json')?await r.json():Buffer.from(await r.arrayBuffer());return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
-async function xlsx(rows){const w=new ExcelJS.Workbook(),s=w.addWorksheet('Lojas');rows.forEach(r=>s.addRow(r));return await w.xlsx.writeBuffer();}
-async function preview(buffer){const form=new FormData();form.append('file',new Blob([buffer]),'lojas.xlsx');return await request('/import/preview',{method:'POST',body:form});}
-async function commit(id,mode='skip',fields=[]){return request('/import/commit',{method:'POST',body:{id,mode,fields}});}
-before(async()=>{dir=await mkdtemp(join(tmpdir(),'revo-tests-'));child=spawn(process.execPath,['server/index.js'],{cwd:process.cwd(),env:{...process.env,NODE_ENV:'production',DB_PATH:join(dir,'test.sqlite'),PORT:String(port),SETUP_TOKEN:'test-setup-token'}});child.stdout.on('data',x=>logs+=x);child.stderr.on('data',x=>logs+=x);for(let i=0;i<100;i++){try{if((await request('/health')).status===200)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw new Error(logs);});
-after(async()=>{if(child?.exitCode===null){const done=new Promise(r=>child.once('exit',r));child.kill('SIGTERM');await done;}await rm(dir,{recursive:true,force:true});});
-test('saúde, bloqueio sem login e bootstrap protegido',async()=>{assert.equal((await request('/health')).data.ok,true);assert.equal((await request('/stores',{cookie:''})).status,401);assert.equal((await request('/setup',{method:'POST',body:{token:'errado'}})).status,403);const r=await request('/setup',{method:'POST',body:{name:'Admin',email:'admin@example.com',password:'test-password-long',token:'test-setup-token'}});assert.equal(r.status,200);assert.match(r.cookie,/revo_session=/);admin=r.cookie;assert.equal((await request('/setup',{method:'POST',body:{}})).status,409);});
-test('origem externa não consegue fazer alterações autenticadas',async()=>{assert.equal((await request('/stores',{method:'POST',headers:{Origin:'https://outro.exemplo'},body:{code:'A',name:'Loja'}})).status,403);});
-test('administrador cadastra perfis e login usa senha verificada',async()=>{for(const [role,email]of [['Visualizador','viewer@example.com'],['Operador','operator@example.com']]){assert.equal((await request('/users',{method:'POST',body:{name:role,email,password:'test-password-long',role}})).status,201);const login=await request('/login',{method:'POST',body:{email,password:'test-password-long'}});assert.equal(login.status,200);if(role==='Visualizador')viewer=login.cookie;else operator=login.cookie;}assert.equal((await request('/login',{method:'POST',body:{email:'admin@example.com',password:'errada'}})).status,401);});
-test('RBAC impede escrita do visualizador e administração do operador',async()=>{assert.equal((await request('/stores',{cookie:viewer,method:'POST',body:{code:'A',name:'Loja'}})).status,403);assert.equal((await request('/users',{cookie:operator})).status,403);assert.equal((await request('/stores',{cookie:viewer})).status,200);assert.equal((await request('/config/0',{cookie:operator,method:'PUT',body:{label:'A'}})).status,403);});
-test('cadastro protege Merchant ID e começa em 0',async()=>{const r=await request('/stores',{cookie:operator,method:'POST',body:{code:' a01 ',name:'Primeira loja',owner:'BD'}});assert.equal(r.status,201);id=r.data.id;assert.equal(r.data.code,'A01');assert.equal(r.data.stage,0);assert.equal((await request('/stores',{method:'POST',body:{code:'a01',name:'Outra'}})).status,409);});
-test('sequência rígida e conflito entre editores são verificados no servidor',async()=>{assert.equal((await request('/stores/'+id,{method:'PATCH',body:{version:1,stage:3}})).status,400);assert.equal((await request('/stores/'+id,{method:'PATCH',body:{version:1,stage:1,code:'TROCAR'}})).status,200);const r=await request('/stores/'+id);assert.equal(r.data.code,'A01');assert.equal(r.data.stage,1);assert.equal((await request('/stores/'+id,{method:'PATCH',body:{version:1,name:'Sobrescrita'}})).status,409);assert.equal((await request('/stores/'+id,{method:'PATCH',body:{version:2,stage:0}})).status,400);});
-test('notas, parâmetros, integração e auditoria persistem',async()=>{assert.equal((await request('/stores/'+id+'/notes',{method:'POST',body:{body:'Contato realizado'}})).status,201);const r=await request('/stores/'+id,{method:'PATCH',body:{version:2,parameters:[{stage:1,value:'Orientação'}],integrations:[{section:0,state:'Concluído',data:{Contrato:'Assinado'}}]}});assert.equal(r.status,200);const d=(await request('/stores/'+id)).data;assert.equal(d.parameters[0].value,'Orientação');assert.equal(d.integrations[0].state,'Concluído');assert.equal(d.notes[0].body,'Contato realizado');assert.ok(d.history.some(h=>h.action==='nota adicionada'));});
-test('transação reverte edição inteira quando parâmetro é inválido',async()=>{const before=(await request('/stores/'+id)).data;assert.equal((await request('/stores/'+id,{method:'PATCH',body:{version:before.version,name:'Não deve salvar',parameters:[{stage:99,value:'erro'}]}})).status,400);const after=(await request('/stores/'+id)).data;assert.equal(after.name,before.name);assert.equal(after.version,before.version);});
-test('importação detecta duplicatas, omissões, preserva existentes e é idempotente',async()=>{const file=await xlsx([['Merchant ID','Merchant Name','Merchant Owner','Merchant Status','Primary Category'],['A01','Nome externo','Outro BD','Cooperando','Restaurante'],['X02','Segunda loja','Novo BD','Pré-abertura','Lanches'],['X02','Duplicada','','Entrando',''],['','Sem ID','','Entrando','']]);const p=await preview(file);assert.equal(p.status,200);assert.deepEqual(p.data.plan.map(r=>r.kind),['existing','new','duplicate','invalid']);const r=await commit(p.data.id);assert.deepEqual(r.data,{created:1,updated:0,skipped:1,invalid:2});const all=(await request('/stores')).data;assert.equal(all.length,2);assert.equal(all.find(x=>x.code==='A01').name,'Primeira loja');const newStore=all.find(x=>x.code==='X02');assert.equal(newStore.stage,3);assert.equal((await request('/stores/'+newStore.id)).data.source['Primary Category'],'Lanches');assert.equal((await commit(p.data.id)).status,400);const p2=await preview(file);assert.equal((await commit(p2.data.id)).data.created,0);assert.equal((await request('/stores')).data.length,2);});
-test('atualização em massa seleciona campos, preserva vazios, status, notas e origem',async()=>{const p=await preview(await xlsx([['Merchant ID','Merchant Name','Merchant Contact Phone','Merchant Status'],['A01','Nome novo','','Offline']]));const r=await commit(p.data.id,'update',['name','contact']);assert.equal(r.data.updated,1);const d=(await request('/stores/'+id)).data;assert.equal(d.name,'Nome novo');assert.equal(d.stage,1);assert.equal(d.notes.length,1);assert.equal(d.parameters[0].value,'Orientação');});
-test('edição depois da prévia bloqueia atualização em massa',async()=>{const p=await preview(await xlsx([['Código da loja','Nome'],['A01','Conflito']]));const d=(await request('/stores/'+id)).data;await request('/stores/'+id,{method:'PATCH',body:{version:d.version,owner:'Editado ao vivo'}});assert.equal((await commit(p.data.id,'update',['name'])).status,409);assert.equal((await request('/stores/'+id)).data.name,'Nome novo');});
-test('fórmulas de entrada são recusadas',async()=>{const p=await preview(await xlsx([['Código da loja','Nome'],['F01',{formula:'1+1',result:2}]]));assert.equal(p.status,400);});
-test('exportação respeita filtros e inclui progresso',async()=>{const r=await request('/export.xlsx?q=X02&stage=3');assert.equal(r.status,200);const w=new ExcelJS.Workbook();await w.xlsx.load(r.data);assert.equal(w.worksheets[0].rowCount,2);assert.ok(w.worksheets[0].getRow(1).values.includes('Progresso (%)'));assert.ok(w.worksheets[0].getRow(2).values.includes(75));});
-test('SSE entrega evento real para outra sessão',async()=>{const controller=new AbortController();const res=await fetch(base+'/api/events',{headers:{Cookie:viewer},signal:controller.signal});const reader=res.body.getReader();let text=new TextDecoder().decode((await reader.read()).value);assert.match(text,/connected/);const d=(await request('/stores/'+id)).data;await request('/stores/'+id,{method:'PATCH',body:{version:d.version,city:'Atualização SSE'}});const outcome=await Promise.race([reader.read(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Evento SSE não chegou')),2500))]);text=new TextDecoder().decode(outcome.value);assert.match(text,/changed/);controller.abort();});
-test('configuração de etapa é persistente e auditável',async()=>{assert.equal((await request('/config/0',{method:'PUT',body:{label:'Contato inicial',instructions:'Confirme os dados'}})).status,200);assert.equal((await request('/config')).data.fields[0].instructions,'Confirme os dados');});
-test('desativação revoga sessão e administrador não pode desativar a si mesmo',async()=>{const users=(await request('/users')).data;const target=users.find(x=>x.role==='Visualizador');assert.equal((await request('/users/'+target.id,{method:'PATCH',body:{role:'Visualizador',active:false}})).status,200);assert.equal((await request('/stores',{cookie:viewer})).status,401);const self=users.find(x=>x.email==='admin@example.com');assert.equal((await request('/users/'+self.id,{method:'PATCH',body:{role:'Visualizador',active:false}})).status,400);});
-test('planilha real: 330 Merchant IDs únicos e reimportação sem duplicidade',{skip:!process.env.FIXTURE_PATH},async()=>{const{readFile}=await import('node:fs/promises');const file=await readFile(process.env.FIXTURE_PATH);const p=await preview(file);assert.equal(p.status,200);assert.equal(p.data.plan.length,330);assert.equal(p.data.plan.filter(x=>x.kind==='new').length,330);assert.equal((await commit(p.data.id)).data.created,330);const again=await preview(file);assert.equal(again.data.plan.filter(x=>x.kind==='existing').length,330);const r=await commit(again.data.id);assert.equal(r.data.created,0);assert.equal(r.data.skipped,330);});
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import ExcelJS from "exceljs";
+const port = 3219,
+  base = "http://127.0.0.1:" + port;
+let child,
+  dir,
+  admin = "",
+  viewer = "",
+  operator = "",
+  id,
+  logs = "";
+async function request(
+  path,
+  { cookie = admin, method = "GET", body, headers = {} } = {},
+) {
+  const r = await fetch(base + "/api" + path, {
+    method,
+    headers: {
+      ...(body instanceof FormData
+        ? {}
+        : { "Content-Type": "application/json" }),
+      Cookie: cookie,
+      ...headers,
+    },
+    body:
+      body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+  });
+  const data = r.headers.get("content-type")?.includes("json")
+    ? await r.json()
+    : Buffer.from(await r.arrayBuffer());
+  return {
+    status: r.status,
+    data,
+    cookie: r.headers.get("set-cookie")?.split(";")[0],
+  };
+}
+async function xlsx(rows) {
+  const w = new ExcelJS.Workbook(),
+    s = w.addWorksheet("Lojas");
+  rows.forEach((r) => s.addRow(r));
+  return await w.xlsx.writeBuffer();
+}
+async function preview(buffer) {
+  const form = new FormData();
+  form.append("file", new Blob([buffer]), "lojas.xlsx");
+  return await request("/import/preview", { method: "POST", body: form });
+}
+async function commit(id, mode = "skip", fields = []) {
+  return request("/import/commit", {
+    method: "POST",
+    body: { id, mode, fields },
+  });
+}
+before(async () => {
+  dir = await mkdtemp(join(tmpdir(), "revo-tests-"));
+  child = spawn(process.execPath, ["server/index.js"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      DB_PATH: join(dir, "test.sqlite"),
+      PORT: String(port),
+      SETUP_TOKEN: "test-setup-token",
+      COOKIE_SECURE: "false",
+    },
+  });
+  child.stdout.on("data", (x) => (logs += x));
+  child.stderr.on("data", (x) => (logs += x));
+  for (let i = 0; i < 100; i++) {
+    try {
+      if ((await request("/health")).status === 200) return;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(logs);
+});
+after(async () => {
+  if (child?.exitCode === null) {
+    const done = new Promise((r) => child.once("exit", r));
+    child.kill("SIGTERM");
+    await done;
+  }
+  await rm(dir, { recursive: true, force: true });
+});
+test("saúde, bloqueio sem login e bootstrap protegido", async () => {
+  assert.equal((await request("/health")).data.ok, true);
+  assert.equal((await request("/stores", { cookie: "" })).status, 401);
+  assert.equal(
+    (await request("/setup", { method: "POST", body: { token: "errado" } }))
+      .status,
+    403,
+  );
+  const r = await request("/setup", {
+    method: "POST",
+    body: {
+      name: "Admin",
+      email: "admin@example.com",
+      password: "test-password-long",
+      token: "test-setup-token",
+    },
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.cookie, /revo_session=/);
+  admin = r.cookie;
+  assert.equal(
+    (await request("/setup", { method: "POST", body: {} })).status,
+    409,
+  );
+});
+test("origem externa não consegue fazer alterações autenticadas", async () => {
+  assert.equal(
+    (
+      await request("/stores", {
+        method: "POST",
+        headers: { Origin: "https://outro.exemplo" },
+        body: { code: "A", name: "Loja" },
+      })
+    ).status,
+    403,
+  );
+});
+test("administrador cadastra perfis e login usa senha verificada", async () => {
+  for (const [role, email] of [
+    ["Visualizador", "viewer@example.com"],
+    ["Operador", "operator@example.com"],
+  ]) {
+    assert.equal(
+      (
+        await request("/users", {
+          method: "POST",
+          body: { name: role, email, password: "test-password-long", role },
+        })
+      ).status,
+      201,
+    );
+    const login = await request("/login", {
+      method: "POST",
+      body: { email, password: "test-password-long" },
+    });
+    assert.equal(login.status, 200);
+    if (role === "Visualizador") viewer = login.cookie;
+    else operator = login.cookie;
+  }
+  assert.equal(
+    (
+      await request("/login", {
+        method: "POST",
+        body: { email: "admin@example.com", password: "errada" },
+      })
+    ).status,
+    401,
+  );
+});
+test("RBAC impede escrita do visualizador e administração do operador", async () => {
+  assert.equal(
+    (
+      await request("/stores", {
+        cookie: viewer,
+        method: "POST",
+        body: { code: "A", name: "Loja" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal((await request("/users", { cookie: operator })).status, 403);
+  assert.equal((await request("/stores", { cookie: viewer })).status, 200);
+  assert.equal(
+    (
+      await request("/config/0", {
+        cookie: operator,
+        method: "PUT",
+        body: { label: "A" },
+      })
+    ).status,
+    403,
+  );
+});
+test("cadastro protege Merchant ID e começa em 0", async () => {
+  const r = await request("/stores", {
+    cookie: operator,
+    method: "POST",
+    body: { code: " a01 ", name: "Primeira loja", owner: "BD" },
+  });
+  assert.equal(r.status, 201);
+  id = r.data.id;
+  assert.equal(r.data.code, "A01");
+  assert.equal(r.data.stage, 0);
+  assert.equal(
+    (
+      await request("/stores", {
+        method: "POST",
+        body: { code: "a01", name: "Outra" },
+      })
+    ).status,
+    409,
+  );
+});
+test("sequência rígida e conflito entre editores são verificados no servidor", async () => {
+  assert.equal(
+    (
+      await request("/stores/" + id, {
+        method: "PATCH",
+        body: { version: 1, stage: 3 },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/stores/" + id, {
+        method: "PATCH",
+        body: { version: 1, stage: 1, code: "TROCAR" },
+      })
+    ).status,
+    200,
+  );
+  const r = await request("/stores/" + id);
+  assert.equal(r.data.code, "A01");
+  assert.equal(r.data.stage, 1);
+  assert.equal(
+    (
+      await request("/stores/" + id, {
+        method: "PATCH",
+        body: { version: 1, name: "Sobrescrita" },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request("/stores/" + id, {
+        method: "PATCH",
+        body: { version: 2, stage: 0 },
+      })
+    ).status,
+    400,
+  );
+});
+test("notas, parâmetros, integração e auditoria persistem", async () => {
+  assert.equal(
+    (
+      await request("/stores/" + id + "/notes", {
+        method: "POST",
+        body: { body: "Contato realizado" },
+      })
+    ).status,
+    201,
+  );
+  const r = await request("/stores/" + id, {
+    method: "PATCH",
+    body: {
+      version: 3,
+      parameters: [{ stage: 1, value: "Orientação" }],
+      integrations: [
+        { section: 0, state: "Concluído", data: { Contrato: "Assinado" } },
+      ],
+    },
+  });
+  assert.equal(r.status, 200);
+  const d = (await request("/stores/" + id)).data;
+  assert.equal(d.parameters[0].value, "Orientação");
+  assert.equal(d.integrations[0].state, "Concluído");
+  assert.equal(d.notes[0].body, "Contato realizado");
+  assert.ok(d.history.some((h) => h.action === "nota adicionada"));
+});
+test("transação reverte edição inteira quando parâmetro é inválido", async () => {
+  const before = (await request("/stores/" + id)).data;
+  assert.equal(
+    (
+      await request("/stores/" + id, {
+        method: "PATCH",
+        body: {
+          version: before.version,
+          name: "Não deve salvar",
+          parameters: [{ stage: 99, value: "erro" }],
+        },
+      })
+    ).status,
+    400,
+  );
+  const after = (await request("/stores/" + id)).data;
+  assert.equal(after.name, before.name);
+  assert.equal(after.version, before.version);
+});
+test("importação detecta duplicatas, omissões, preserva existentes e é idempotente", async () => {
+  const file = await xlsx([
+    [
+      "Merchant ID",
+      "Merchant Name",
+      "Merchant Owner",
+      "Merchant Status",
+      "Primary Category",
+    ],
+    ["A01", "Nome externo", "Outro BD", "Cooperando", "Restaurante"],
+    ["X02", "Segunda loja", "Novo BD", "Pré-abertura", "Lanches"],
+    ["X02", "Duplicada", "", "Entrando", ""],
+    ["", "Sem ID", "", "Entrando", ""],
+  ]);
+  const p = await preview(file);
+  assert.equal(p.status, 200);
+  assert.deepEqual(
+    p.data.plan.map((r) => r.kind),
+    ["existing", "new", "duplicate", "invalid"],
+  );
+  const r = await commit(p.data.id);
+  assert.deepEqual(r.data, { created: 1, updated: 0, skipped: 1, invalid: 2 });
+  const all = (await request("/stores")).data;
+  assert.equal(all.length, 2);
+  assert.equal(all.find((x) => x.code === "A01").name, "Primeira loja");
+  const newStore = all.find((x) => x.code === "X02");
+  assert.equal(newStore.stage, 3);
+  assert.equal(
+    (await request("/stores/" + newStore.id)).data.source["Primary Category"],
+    "Lanches",
+  );
+  assert.equal((await commit(p.data.id)).status, 400);
+  const p2 = await preview(file);
+  assert.equal((await commit(p2.data.id)).data.created, 0);
+  assert.equal((await request("/stores")).data.length, 2);
+});
+test("atualização em massa seleciona campos, preserva vazios, status, notas e origem", async () => {
+  const p = await preview(
+    await xlsx([
+      [
+        "Merchant ID",
+        "Merchant Name",
+        "Merchant Contact Phone",
+        "Merchant Status",
+      ],
+      ["A01", "Nome novo", "", "Offline"],
+    ]),
+  );
+  const r = await commit(p.data.id, "update", ["name", "contact"]);
+  assert.equal(r.data.updated, 1);
+  const d = (await request("/stores/" + id)).data;
+  assert.equal(d.name, "Nome novo");
+  assert.equal(d.stage, 1);
+  assert.equal(d.notes.length, 1);
+  assert.equal(d.parameters[0].value, "Orientação");
+});
+test("edição depois da prévia bloqueia atualização em massa", async () => {
+  const p = await preview(
+    await xlsx([
+      ["Código da loja", "Nome"],
+      ["A01", "Conflito"],
+    ]),
+  );
+  const d = (await request("/stores/" + id)).data;
+  await request("/stores/" + id, {
+    method: "PATCH",
+    body: { version: d.version, owner: "Editado ao vivo" },
+  });
+  assert.equal((await commit(p.data.id, "update", ["name"])).status, 409);
+  assert.equal((await request("/stores/" + id)).data.name, "Nome novo");
+});
+test("fórmulas de entrada são recusadas", async () => {
+  const p = await preview(
+    await xlsx([
+      ["Código da loja", "Nome"],
+      ["F01", { formula: "1+1", result: 2 }],
+    ]),
+  );
+  assert.equal(p.status, 400);
+});
+test("exportação respeita filtros e inclui progresso", async () => {
+  const r = await request("/export.xlsx?q=X02&stage=3");
+  assert.equal(r.status, 200);
+  const w = new ExcelJS.Workbook();
+  await w.xlsx.load(r.data);
+  assert.equal(w.worksheets[0].rowCount, 2);
+  assert.ok(w.worksheets[0].getRow(1).values.includes("Progresso (%)"));
+  assert.ok(w.worksheets[0].getRow(2).values.includes(75));
+});
+test("SSE entrega evento real para outra sessão", async () => {
+  const controller = new AbortController();
+  const res = await fetch(base + "/api/events", {
+    headers: { Cookie: viewer },
+    signal: controller.signal,
+  });
+  const reader = res.body.getReader();
+  let text = new TextDecoder().decode((await reader.read()).value);
+  assert.match(text, /connected/);
+  const d = (await request("/stores/" + id)).data;
+  await request("/stores/" + id, {
+    method: "PATCH",
+    body: { version: d.version, city: "Atualização SSE" },
+  });
+  const outcome = await Promise.race([
+    reader.read(),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Evento SSE não chegou")), 2500),
+    ),
+  ]);
+  text = new TextDecoder().decode(outcome.value);
+  assert.match(text, /changed/);
+  controller.abort();
+});
+test("configuração de etapa é persistente e auditável", async () => {
+  assert.equal(
+    (
+      await request("/config/0", {
+        method: "PUT",
+        body: { label: "Contato inicial", instructions: "Confirme os dados" },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await request("/config")).data.fields[0].instructions,
+    "Confirme os dados",
+  );
+});
+test("desativação revoga sessão e administrador não pode desativar a si mesmo", async () => {
+  const users = (await request("/users")).data;
+  const target = users.find((x) => x.role === "Visualizador");
+  assert.equal(
+    (
+      await request("/users/" + target.id, {
+        method: "PATCH",
+        body: { role: "Visualizador", active: false },
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await request("/stores", { cookie: viewer })).status, 401);
+  const self = users.find((x) => x.email === "admin@example.com");
+  assert.equal(
+    (
+      await request("/users/" + self.id, {
+        method: "PATCH",
+        body: { role: "Visualizador", active: false },
+      })
+    ).status,
+    400,
+  );
+});
+test(
+  "planilha real: 330 Merchant IDs únicos e reimportação sem duplicidade",
+  { skip: !process.env.FIXTURE_PATH },
+  async () => {
+    const { readFile } = await import("node:fs/promises");
+    const file = await readFile(process.env.FIXTURE_PATH);
+    const p = await preview(file);
+    assert.equal(p.status, 200);
+    assert.equal(p.data.plan.length, 330);
+    assert.equal(p.data.plan.filter((x) => x.kind === "new").length, 330);
+    assert.equal((await commit(p.data.id)).data.created, 330);
+    const again = await preview(file);
+    assert.equal(
+      again.data.plan.filter((x) => x.kind === "existing").length,
+      330,
+    );
+    const r = await commit(again.data.id);
+    assert.equal(r.data.created, 0);
+    assert.equal(r.data.skipped, 330);
+  },
+);
+
+test("nova nota traz a loja para o início e troca de senha revoga a sessão antiga", async () => {
+  const before = (await request("/stores/" + id)).data;
+  await request("/stores/" + id + "/notes", {
+    method: "POST",
+    body: { body: "Última atividade" },
+  });
+  assert.equal((await request("/stores")).data[0].id, id);
+  assert.ok((await request("/stores/" + id)).data.version > before.version);
+  assert.equal(
+    (
+      await request("/password", {
+        method: "POST",
+        body: { current: "errada", password: "new-test-password" },
+      })
+    ).status,
+    403,
+  );
+  const old = admin,
+    r = await request("/password", {
+      method: "POST",
+      body: { current: "test-password-long", password: "new-test-password" },
+    });
+  assert.equal(r.status, 200);
+  admin = r.cookie;
+  assert.equal((await request("/stores", { cookie: old })).status, 401);
+  assert.equal((await request("/stores")).status, 200);
+});
+
+test("backup consistente pode ser restaurado em um novo caminho sem sobrescrever o original", async () => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { copyFile } = await import("node:fs/promises");
+  const backup = join(dir, "backup.sqlite"),
+    restored = join(dir, "restored.sqlite");
+  await promisify(execFile)(process.execPath, ["server/backup.js", backup], {
+    env: { ...process.env, DB_PATH: join(dir, "test.sqlite") },
+  });
+  await copyFile(backup, restored);
+  const copy = new DatabaseSync(restored, { readOnly: true });
+  assert.equal(
+    Object.values(copy.prepare("PRAGMA integrity_check").get())[0],
+    "ok",
+  );
+  assert.equal(
+    copy.prepare("SELECT COUNT(*) AS n FROM stores").get().n,
+    (await request("/stores")).data.length,
+  );
+  assert.ok(copy.prepare("SELECT COUNT(*) AS n FROM notes").get().n > 0);
+  copy.close();
+  await assert.rejects(
+    promisify(execFile)(process.execPath, ["server/backup.js", backup], {
+      env: { ...process.env, DB_PATH: join(dir, "test.sqlite") },
+    }),
+  );
+});

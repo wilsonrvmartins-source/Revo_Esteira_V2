@@ -1,4 +1,57 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {normalizeCode,planImport,validateStore} from '../server/domain.js';
-test('identidade normalizada e nome não é chave única',()=>{assert.equal(normalizeCode(' ab-01 '),'AB-01');const plan=planImport([{code:'1',name:'Mesmo nome'},{code:'2',name:'Mesmo nome'}],new Set());assert.deepEqual(plan.map(x=>x.kind),['new','new']);});
-test('prévia separa existentes, repetidos e inválidos e mantém estágio inicial',()=>{const p=planImport([{code:' a ',name:'A',initialStage:3,source:{original:'valor'}},{code:'A',name:'B'},{code:'B',name:''},{code:'C',name:'C'}],new Set(['A']));assert.deepEqual(p.map(x=>x.kind),['existing','duplicate','invalid','new']);assert.equal(p[0].item.initialStage,3);assert.deepEqual(p[0].item.source,{original:'valor'});});
-test('limites de campos e chave obrigatória',()=>{assert.throws(()=>validateStore({code:'',name:'Loja'}));assert.throws(()=>validateStore({code:'1',name:'A',contact:'x'.repeat(501)}));});
+import test from "node:test";
+import assert from "node:assert/strict";
+import { normalizeCode, planImport, validateStore } from "../server/domain.js";
+test("identidade normalizada e nome não é chave única", () => {
+  assert.equal(normalizeCode(" ab-01 "), "AB-01");
+  const plan = planImport(
+    [
+      { code: "1", name: "Mesmo nome" },
+      { code: "2", name: "Mesmo nome" },
+    ],
+    new Set(),
+  );
+  assert.deepEqual(
+    plan.map((x) => x.kind),
+    ["new", "new"],
+  );
+});
+test("prévia separa existentes, repetidos e inválidos e mantém estágio inicial", () => {
+  const p = planImport(
+    [
+      {
+        code: " a ",
+        name: "A",
+        initialStage: 3,
+        source: { original: "valor" },
+      },
+      { code: "A", name: "B" },
+      { code: "B", name: "" },
+      { code: "C", name: "C" },
+    ],
+    new Set(["A"]),
+  );
+  assert.deepEqual(
+    p.map((x) => x.kind),
+    ["existing", "duplicate", "invalid", "new"],
+  );
+  assert.equal(p[0].item.initialStage, 3);
+  assert.deepEqual(p[0].item.source, { original: "valor" });
+});
+test("limites de campos e chave obrigatória", () => {
+  assert.throws(() => validateStore({ code: "", name: "Loja" }));
+  assert.throws(() =>
+    validateStore({ code: "1", name: "A", contact: "x".repeat(501) }),
+  );
+});
+
+test("XLSX malformado ou com expansão excessiva é recusado antes de descompactar", async () => {
+  const { validateZip } = await import("../server/xlsx-guard.js");
+  assert.throws(() => validateZip(Buffer.from("PK inválido")));
+  const zip = Buffer.alloc(100);
+  zip.writeUInt32LE(0x02014b50, 0);
+  zip.writeUInt32LE(31 * 1024 * 1024, 24);
+  zip.writeUInt32LE(0x06054b50, 78);
+  zip.writeUInt16LE(1, 88);
+  zip.writeUInt32LE(0, 94);
+  assert.throws(() => validateZip(zip), /30 MB/);
+});
