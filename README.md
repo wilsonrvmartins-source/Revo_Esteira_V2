@@ -7,13 +7,16 @@ Aplicação web para acompanhar lojas em uma esteira de processos. React no fron
 ```bash
 cd /workspace/Revo_Esteira_V2
 npm ci
-# Defina um token privado de configuração inicial no terminal ou gerenciador de segredos.
-# SETUP_TOKEN não deve ser salvo no Git nem reutilizado como senha.
-export SETUP_TOKEN='substitua-por-um-token-longo-e-aleatorio'
+# Somente no primeiro uso, se ainda não houver usuários:
+npm run prepare-owner
 npm run dev
 ```
 
-A aplicação usa a porta 3000, com interface e API na mesma origem. No primeiro acesso, informe o token e crie seu administrador com senha de pelo menos 12 caracteres. Não há senha padrão. Depois da criação do primeiro usuário, o bootstrap é bloqueado, mesmo com o token correto. O administrador cadastra os demais usuários na interface. Todos podem trocar a própria senha; administradores podem redefinir senhas da equipe.
+O comando de preparação cria o administrador com senha aleatória e salva o acesso em `data/revo-acesso-inicial.txt`, com permissão privada e fora do Git. Ele não imprime a senha, não sobrescreve arquivos existentes e recusa alterar uma conta já criada. O proprietário pode abrir esse arquivo e entrar com o usuário local `admin@revo.local`; essa identificação não é uma caixa de e-mail. Depois do login, use Minha conta para trocar a senha. Não é necessário escolher tokens ou outras configurações técnicas para esse fluxo.
+
+A aplicação usa a porta 3000, com interface e API na mesma origem. O administrador cadastra os demais usuários na interface. Todos podem trocar a própria senha; administradores podem redefinir senhas da equipe.
+
+Como alternativa para uma instalação remota sem acesso ao terminal, o bootstrap web exige SETUP_TOKEN privado e permite criar o primeiro administrador pela interface. Esse token é desnecessário quando o comando local já preparou a conta. A criação inicial é bloqueada assim que houver usuário.
 
 Cada tarefa de nuvem já é isolada: reutilize o checkout existente, sem criar worktrees. Não reinicialize nem substitua um banco existente. Não use o banco de testes como banco real.
 
@@ -99,4 +102,4 @@ A separação entre autenticação, domínio, persistência, importação e fron
 
 Próximas melhorias recomendadas após observar o uso real: prazos por etapa e alertas de atraso; indicadores por responsável/líder; regras obrigatórias antes de avançar; anexos com armazenamento privado; login corporativo/MFA e recuperação de senha; backups externos agendados com teste de restauração; paginação para bases maiores. Não foi inventada uma regra de negócio para bloquear etapas por campos vazios.
 
-A versão atual não faz sincronização com a plataforma que originou a planilha, envio de e-mails, geolocalização ou execução de campanhas. As colunas desses serviços são dados de referência. Antes de publicação: configurar HTTPS, administrador real e armazenamento/backup externo; revisar o fluxo com a equipe. Nenhuma disponibilidade permanente é prometida por um processo rodando nesta sessão.
+A versão atual não faz sincronização com a plataforma que originou a planilha, envio de e-mails, geolocalização ou execução de campanhas. As colunas desses serviços são dados de referência. Antes de publicação: configurar HTTPS e armazenamento/backup externo; revisar o fluxo com a equipe. Nenhuma disponibilidade permanente é prometida por um processo rodando nesta sessão.
