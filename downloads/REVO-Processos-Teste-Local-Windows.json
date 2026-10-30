@@ -1,0 +1,10 @@
+{
+  "kind": "offline-demo-distribution",
+  "sha256": "920313597ecd835587a7988fc582da26e2b18ad0fe8c3b902c6eb5a6beff5746",
+  "bytes": 49114719,
+  "sourceCommit": "720a0049465f88b1ccd061a1b7f2dd944fd3583c",
+  "containsOperationalData": false,
+  "fictitiousDataGeneratedOnFirstRun": true,
+  "platform": "Windows x64",
+  "runtimeNodeVersion": "v24.22.2"
+}

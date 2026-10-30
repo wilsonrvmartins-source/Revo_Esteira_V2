@@ -410,3 +410,13 @@ O ambiente de desenvolvimento é Linux, sem execução nativa de Windows. Não a
 Após essa etapa, continuam pendentes a hospedagem pública, a sincronização automática de pastas pessoais e a PWA instalável. Nenhum site foi publicado por esse trabalho. Para continuar, confira o commit que contém esta seção e preserve a auditoria a cada salvamento.
 
 Resultado de validação desta extensão: os 46 testes foram executados com a planilha real e passaram; a demo passou na navegação com requisições externas bloqueadas, incluindo avanço de status, nota, importação, deduplicação, perfil de leitura e celular. O modo operacional anterior também passou no teste em navegador. A aplicação extraída do pacote candidato iniciou com suas próprias dependências. Esses resultados não equivalem à execução nativa do Windows, que continua pendente no computador do proprietário.
+
+## 22. Download do teste local pelo GitHub
+
+Como o link de arquivo do chat não abriu no computador do proprietário, ele pediu uma forma de baixar pelo GitHub. Foi acrescentada a pasta downloads/ com o ZIP portátil Windows x64 e um manifesto de distribuição. O arquivo é uma entrega de demonstração, não um backup operacional nem substituto do histórico do código. O pacote funcional corresponde ao commit 720a004, inclui runtime oficial e gera os dados fictícios somente na primeira execução.
+
+Há uma exceção estreita na auditoria para esse nome exato de ZIP. scripts/validate-demo-artifact.mjs confere o SHA-256 do conteúdo preparado no índice, o manifesto interno, arquivos obrigatórios e caminhos que poderiam representar dados privados. Os demais ZIPs, bancos e arquivos privados continuam bloqueados. O hook permanece ativo; não foi utilizado --no-verify. JSZip foi declarado como dependência direta para essa inspeção.
+
+A orientação de download passa a ser abrir downloads/ no GitHub, baixar o arquivo ZIP pronto, extrair tudo e abrir INICIAR-REVO.bat. O botão Code → Download ZIP continua sendo um arquivo do repositório de desenvolvimento; não equivale a extrair e iniciar o pacote portátil que está dentro de downloads/. A distribuição no GitHub não publica um site nem expõe o banco real.
+
+Validação adicional da distribuição: o pacote real foi inspecionado pelo validador; quatro testes de manifesto/ZIP e os quatro testes da auditoria verificam aceitação do artefato fictício, bloqueio de banco/ZIP não autorizado e divergências de hash/versão. O código do aplicativo no pacote continua sendo a versão funcional 720a004.

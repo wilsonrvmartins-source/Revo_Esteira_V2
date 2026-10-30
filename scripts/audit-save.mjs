@@ -2,6 +2,11 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { randomBytes, createHash } from "node:crypto";
 import { join } from "node:path";
+import {
+  DEMO_ARTIFACT,
+  DEMO_MANIFEST,
+  validateDemoArtifact,
+} from "./validate-demo-artifact.mjs";
 function git(...args) {
   const r = spawnSync("git", args, { encoding: "utf8" });
   if (r.status !== 0) throw new Error("Falha na auditoria: " + r.stderr.trim());
@@ -16,16 +21,35 @@ if (
   paths.every((p) => p.startsWith("docs/auditoria/salvamentos/"))
 )
   process.exit(0);
-const privatePaths = paths.filter((p) =>
-  /(^|\/)(data|data-demo|node_modules|attachments)(\/|$)|(^|\/)\.env(?:\.|$)|\.(?:sqlite(?:-wal|-shm)?|db|pem|key|xlsx|zip|bundle|webm)$/i.test(
-    p,
-  ),
+const privatePaths = paths.filter(
+  (p) =>
+    p !== DEMO_ARTIFACT &&
+    /(^|\/)(data|data-demo|node_modules|attachments)(\/|$)|(^|\/)\.env(?:\.|$)|\.(?:sqlite(?:-wal|-shm)?|db|pem|key|xlsx|zip|bundle|webm)$/i.test(
+      p,
+    ),
 );
 if (privatePaths.length)
   throw new Error(
     "Salvamento interrompido: retire do staging arquivos privados ou operacionais: " +
       privatePaths.join(", "),
   );
+let distributionAudit = null;
+if (paths.includes(DEMO_ARTIFACT) || paths.includes(DEMO_MANIFEST)) {
+  const staged = spawnSync("git", ["show", ":" + DEMO_ARTIFACT], {
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  const metadata = spawnSync("git", ["show", ":" + DEMO_MANIFEST], {
+    encoding: "utf8",
+  });
+  if (staged.status !== 0 || metadata.status !== 0)
+    throw new Error(
+      "Pacote público exige um manifesto preparado no mesmo índice.",
+    );
+  distributionAudit = await validateDemoArtifact(
+    staged.stdout,
+    JSON.parse(metadata.stdout),
+  );
+}
 const now = new Date(),
   filename =
     now.toISOString().replaceAll(":", "-") +
@@ -44,6 +68,7 @@ if (stagedPrompt.status !== 0)
 const prompt = stagedPrompt.stdout;
 const record = {
   schemaVersion: 1,
+  ...(distributionAudit ? { distributionAudit } : {}),
   createdAtUTC: now.toISOString(),
   createdAtSaoPaulo: now.toLocaleString("sv-SE", {
     timeZone: "America/Sao_Paulo",

@@ -86,3 +86,15 @@ test("instalação preserva hooks de outro fluxo", () =>
       "meus-hooks",
     );
   }));
+
+test("ZIP fora do nome autorizado continua bloqueado", () =>
+  temporary(async ({ dir, git }) => {
+    await writeFile(join(dir, "outro.zip"), "Fixture sem conteúdo privado");
+    git("add", "outro.zip");
+    const r = spawnSync(process.execPath, [script], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /arquivos privados/);
+  }));

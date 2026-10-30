@@ -146,3 +146,7 @@ Para desenvolver/testar a demo pelo código: `npm run build` e `npm run demo` (N
 O produtor do pacote usa `scripts/package-offline.py`, Python 3 e um manifesto de runtime oficial já baixado e verificado contra SHASUMS256 da distribuição Node.js. Não baixa executáveis silenciosamente na máquina do usuário. Inclui licença e checksums, recusa sobrescrever o destino e exclui os dados operacionais. O runtime não é versionado no Git.
 
 A validação disponível neste ambiente é Linux: aplicação, base fictícia, isolamento, navegador e arquivos extraídos são testados. A execução nativa do `.bat` e do `node.exe` no Windows precisa ser confirmada na máquina Windows; não foi simulada nem declarada como teste executado aqui. Consulte também `LEIA-ME-TESTE-LOCAL.txt`.
+
+## Download da demonstração pronta
+
+O pacote Windows pronto fica em [downloads/](downloads/README.md). Use o ZIP dessa pasta, e não apenas o botão Code → Download ZIP do repositório: o código-fonte por si só não tem a pasta runtime pronta para o iniciador. A distribuição foi solicitada pelo proprietário e contém apenas código, dependências e runtime, sem banco operacional. Um manifesto e a auditoria conferem a integridade e os caminhos do pacote.

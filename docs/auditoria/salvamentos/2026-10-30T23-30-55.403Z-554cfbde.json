@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "distributionAudit": {
+    "sha256": "920313597ecd835587a7988fc582da26e2b18ad0fe8c3b902c6eb5a6beff5746",
+    "bytes": 49114719,
+    "sourceCommit": "720a0049465f88b1ccd061a1b7f2dd944fd3583c",
+    "checkedForPrivatePaths": true
+  },
+  "createdAtUTC": "2026-10-30T23:30:55.403Z",
+  "createdAtSaoPaulo": "2026-10-30 20:30:55",
+  "repository": "wilsonrvmartins-source/Revo_Esteira_V2",
+  "targetBranch": "codex/revo-processos",
+  "baseCommit": "720a0049465f88b1ccd061a1b7f2dd944fd3583c",
+  "preparedCodeTree": "a2f3b325b03b9d82fa3e11435383c41d90fb67d3",
+  "summary": "Distribuição do pacote fictício Windows em downloads para acesso pelo GitHub; checksum e ausência de caminhos privados verificados; oito testes específicos aprovados.",
+  "changedPaths": [
+    "AGENTS.md",
+    "README.md",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.md",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.txt",
+    "downloads/README.md",
+    "downloads/REVO-Processos-Teste-Local-Windows.json",
+    "downloads/REVO-Processos-Teste-Local-Windows.zip",
+    "package-lock.json",
+    "package.json",
+    "scripts/audit-save.mjs",
+    "scripts/validate-demo-artifact.mjs",
+    "tests/audit.test.js",
+    "tests/demo-distribution.test.js"
+  ],
+  "promptSHA256": "cbb1ac18275eeb257415334bb584bcf1914177a862b8c987082b7bafcb6acda8",
+  "gitCommitAndPush": "O SHA final pertence ao commit que contém este arquivo. Confirmar no remoto depois do push; este registro não afirma envio antecipadamente."
+}
