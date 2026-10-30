@@ -15,6 +15,10 @@ import {
 } from "./spreadsheet.js";
 import { createAutoImporter } from "./auto-import.js";
 import { STAGES, ROLES, FIELDS, validateStore, planImport } from "./domain.js";
+if (process.env.REVO_LOCAL_DEMO === "1" && process.env.HOST !== "127.0.0.1")
+  throw new Error(
+    "A demonstração local só pode escutar em 127.0.0.1. Use o iniciador próprio.",
+  );
 const root = fileURLToPath(new URL("../", import.meta.url));
 const dbPath = process.env.DB_PATH || resolve(root, "data/revo.sqlite");
 const db = openDB(dbPath);
@@ -86,7 +90,10 @@ function session(req, res, user) {
 }
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 app.get("/api/setup", (req, res) =>
-  res.json({ required: !db.prepare("SELECT id FROM users LIMIT 1").get() }),
+  res.json({
+    required: !db.prepare("SELECT id FROM users LIMIT 1").get(),
+    demo: process.env.REVO_LOCAL_DEMO === "1",
+  }),
 );
 app.post("/api/setup", (req, res) => {
   if (db.prepare("SELECT id FROM users LIMIT 1").get())
@@ -785,16 +792,22 @@ automation.start();
 const server = app.listen(
   Number(process.env.PORT || 3000),
   process.env.HOST || "127.0.0.1",
-  () =>
-    console.log(
-      "REVO Processos iniciado na porta " + (process.env.PORT || 3000),
-    ),
+  () => {
+    const port = server.address().port;
+    console.log("REVO Processos iniciado na porta " + port);
+    if (process.send) process.send({ type: "ready", port });
+  },
 );
-process.on("SIGTERM", () => {
+let stopping = false;
+function stopServer() {
+  if (stopping) return;
+  stopping = true;
   automation.stop();
   for (const c of clients) c.res.end();
   server.close(() => {
     db.close();
     process.exit(0);
   });
-});
+}
+process.on("SIGTERM", stopServer);
+if (process.send) process.on("disconnect", stopServer);

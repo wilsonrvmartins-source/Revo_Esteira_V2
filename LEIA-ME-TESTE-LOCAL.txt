@@ -1,0 +1,49 @@
+REVO PROCESSOS — DEMONSTRAÇÃO LOCAL PARA WINDOWS 64 BITS
+
+COMO ABRIR
+1. Baixe o ZIP completo da demonstração.
+2. Clique com o botão direito no ZIP e escolha "Extrair Tudo".
+3. Abra a pasta extraída e dê dois cliques em INICIAR-REVO.bat.
+4. Aguarde o navegador abrir e escolha um perfil para testar.
+
+Não execute o iniciador dentro do ZIP. Extraia a pasta inteira.
+Não é necessário instalar Node.js, npm, banco de dados ou outra ferramenta.
+Depois do download, o teste funciona sem conexão com a internet.
+O navegador usa apenas o servidor que está no seu próprio computador.
+
+O QUE VOCÊ VAI ENCONTRAR
+- 330 lojas inteiramente fictícias, distribuídas nas sete etapas.
+- Acesso de teste como Administrador, Operador e Visualizador, sem digitar senha.
+- Timeline, percentuais, integração, notas, buscas, histórico e Excel.
+- Pasta monitorada e planilhas de exemplo em data-demo\exemplos.
+
+PARA TESTAR A IMPORTAÇÃO
+Na aplicação, abra "Importação automática" e envie uma das planilhas de
+exemplo da pasta data-demo\exemplos, criada na primeira abertura.
+01-novas-lojas-ficticias.xlsx cria duas lojas de teste.
+02-atualizar-sem-duplicar.xlsx atualiza campos permitidos e mostra a proteção
+contra sobrescrever o responsável alterado manualmente.
+03-relatorio-ficticio-330-lojas.xlsx permite reenviar as 330 lojas sem duplicar.
+
+COMO ENCERRAR E ABRIR NOVAMENTE
+Mantenha a janela preta do iniciador aberta enquanto utiliza o sistema.
+Para encerrar, feche essa janela. Na próxima abertura, seus testes continuam
+salvos na pasta data-demo. Não é feito reset automático.
+
+SE NÃO ABRIR
+O iniciador informa um endereço local na janela preta. Copie esse endereço
+para o navegador caso ele não abra automaticamente.
+Se o Windows pedir uma confirmação de segurança, confira a origem do ZIP.
+Não desative o antivírus nem outras proteções para executar o pacote.
+O pacote foi preparado para Windows x64; este ambiente de desenvolvimento
+é Linux e não executa arquivos .bat ou node.exe de Windows nativamente.
+A aplicação, o isolamento da base e o conteúdo extraído são testados aqui.
+
+DADOS E SEGURANÇA
+Tudo neste teste é fictício. Não há as 330 lojas reais, suas senhas ou backups.
+Os acessos de demonstração são públicos e servem só para este teste local.
+Não use a demonstração para dados reais nem a exponha à internet.
+O iniciador força o servidor a aceitar conexões apenas do próprio computador.
+Não mexe no banco de produção e não precisa de tokens.
+Você pode apagar a pasta extraída inteira quando terminar o teste, desde que
+ela seja apenas esta demonstração. Não apague seus backups ou o projeto real.

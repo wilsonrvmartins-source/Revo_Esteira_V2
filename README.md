@@ -132,3 +132,17 @@ Para testar a automação: `npm test`. Com `FIXTURE_PATH`, o relatório real é 
 ## Continuidade e auditoria dos salvamentos
 
 O código completo está neste repositório. O [prompt completo desde a versão zero](docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.md) e a [auditoria](docs/auditoria/AUDITORIA.md) acompanham a aplicação. Depois de preparar os arquivos da etapa no staging, `npm run save -- "descrição"` registra auditoria, faz commit, tenta envio à branch de desenvolvimento e verifica o SHA remoto. `npm run audit:setup` ativa o hook; ele também é configurado pelo postinstall em clones Git sem hooks conflitantes. Não use force push nem envie dados privados.
+
+## Demonstração local e offline para Windows
+
+O pacote portátil de teste inclui o runtime oficial Node.js Windows x64, dependências de execução e a interface compilada. Depois de baixar e extrair **o ZIP completo de demonstração**, abra `INICIAR-REVO.bat`; o navegador abre automaticamente. Não é necessário instalar ferramentas ou conectar à internet para usar o pacote já extraído. O ZIP de código do GitHub, sozinho, não inclui o runtime portátil.
+
+Há **330 lojas fictícias** nas sete etapas, três perfis acessíveis por botões e exemplos de planilhas em `data-demo/exemplos`. Os testes ficam em `data-demo/revo.sqlite`, identificados por um marcador próprio. O iniciador nunca usa `DB_PATH`, `IMPORT_DIR`, porta ou HOST herdados: força seu próprio banco fictício, pasta isolada, porta local disponível e `127.0.0.1`. O servidor recusa o modo de demonstração se o HOST não for local. As credenciais fictícias são públicas e exclusivas dessa base, sem relação com o acesso operacional.
+
+As alterações de teste são preservadas ao fechar e reabrir. Pastas com arquivos anteriores sem identificação de demo são recusadas; não há reset automático. O pacote não contém banco real, acesso privado ou planilha original das lojas. Não use este modo para produção nem o exponha à internet. Depois do teste, é possível apagar somente a pasta extraída da demonstração.
+
+Para desenvolver/testar a demo pelo código: `npm run build` e `npm run demo` (Node 24+ e dependências já instaladas). `node scripts/offline-demo.mjs --no-browser --smoke-test` verifica a inicialização; use uma pasta vazia com `--data-dir` para isolar verificações. `node scripts/check-local-demo.mjs` testa a interface com requisições externas bloqueadas.
+
+O produtor do pacote usa `scripts/package-offline.py`, Python 3 e um manifesto de runtime oficial já baixado e verificado contra SHASUMS256 da distribuição Node.js. Não baixa executáveis silenciosamente na máquina do usuário. Inclui licença e checksums, recusa sobrescrever o destino e exclui os dados operacionais. O runtime não é versionado no Git.
+
+A validação disponível neste ambiente é Linux: aplicação, base fictícia, isolamento, navegador e arquivos extraídos são testados. A execução nativa do `.bat` e do `node.exe` no Windows precisa ser confirmada na máquina Windows; não foi simulada nem declarada como teste executado aqui. Consulte também `LEIA-ME-TESTE-LOCAL.txt`.

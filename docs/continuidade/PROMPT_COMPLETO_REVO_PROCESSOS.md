@@ -10,7 +10,7 @@ Primeiro analise os arquivos recebidos, execute o projeto e relate seu estado. *
 
 Repositório utilizado no desenvolvimento atual: **wilsonrvmartins-source/Revo_Esteira_V2**.
 Branch com a aplicação: **codex/revo-processos**.
-Commit da implementação mais recente até este documento: **b65274b81fabf968fad1586d67ab1401e4fd6d6d**.
+Commit-base da implementação funcional, antes das extensões descritas nas seções 20 e 21: **b65274b81fabf968fad1586d67ab1401e4fd6d6d**.
 URL: https://github.com/wilsonrvmartins-source/Revo_Esteira_V2/tree/codex/revo-processos
 
 A branch main originalmente continha somente um README. Não baixe main presumindo que contém a aplicação. Confirme a branch e o SHA. Não substitua main, não faça force push e não altere o destino remoto sem autorização. Se a IA não tiver acesso ao GitHub, use o ZIP de código fornecido pelo proprietário e preserve o histórico que estiver disponível.
@@ -262,7 +262,7 @@ HOST=0.0.0.0 NODE_ENV=production npm start
 
 `COOKIE_SECURE=false` é exclusivamente para testes locais por HTTP. Não desative proteção de produção para obter um teste verde. Não exponha uma instalação sem proteção ou dados reais por um túnel público sem autorização.
 
-O script `start` usa sintaxe POSIX para variável de ambiente. **Um iniciador simples e portátil para Windows ainda não foi preparado.** O proprietário usa Windows e deseja conseguir testar localmente sem comandos técnicos; trate isso como uma possível próxima etapa, não como recurso já entregue. Caminhos `/workspace` e `/usr/bin/chromium` são do ambiente de desenvolvimento e podem precisar ser adaptados em outra máquina. `CHROMIUM_PATH` permite indicar outro executável para testes de interface.
+O script `start` usa sintaxe POSIX para variável de ambiente. **Foi acrescentado um iniciador portátil para Windows, conforme a seção 21.** O proprietário usa Windows e deseja conseguir testar localmente sem comandos técnicos; trate isso como uma possível próxima etapa, não como recurso já entregue. Caminhos `/workspace` e `/usr/bin/chromium` são do ambiente de desenvolvimento e podem precisar ser adaptados em outra máquina. `CHROMIUM_PATH` permite indicar outro executável para testes de interface.
 
 ## 14. Testes e evidências de funcionamento
 
@@ -318,7 +318,7 @@ Ainda não concluído/configurado:
 - Hospedagem pública da aplicação e domínio/HTTPS para acesso interativo externo.
 - PWA instalável ou aplicativo nativo.
 - Sincronização automática de pastas de vários PCs/Drive/OneDrive com o servidor.
-- Iniciador local simples para Windows e pacote de demonstração local de um clique.
+- Confirmação da execução nativa do iniciador no computador Windows do proprietário; o pacote portátil já foi preparado e validado em seus componentes no ambiente Linux.
 - Backups externos agendados com retenção e restauração periódica.
 - Migração para PostgreSQL e coordenação de eventos/arquivos para várias instâncias.
 - Recuperação de senha por e-mail, MFA e login corporativo.
@@ -383,3 +383,30 @@ Uma auditoria incluída no próprio commit não pode conter antecipadamente o ha
 GitHub mantém o código completo em cada commit. Não copie a aplicação dentro de outra pasta a cada salvamento nem versione ZIPs, bancos e senhas para simular histórico. A auditoria automática exige o hook instalado; em um ZIP sem `.git`, não há commits nem hooks para registrar. Não sobrescreva hooks preexistentes sem autorização. Se o envio for recusado por autenticação ou revisão de aprovação, não o contorne por outro comando: explique a situação e preserve o commit local.
 
 Validação desta atualização: três testes específicos da auditoria passaram (registro e hash exato do prompt, bloqueio de arquivo privado e preservação de hooks existentes), além da verificação de formatação. São adicionais aos 39 testes da aplicação; o total passa a 42 casos, com dois opcionais dependentes da planilha real. A lógica de negócio da aplicação não foi alterada nesta etapa.
+
+## 21. Última extensão — demonstração offline com o mesmo cenário fictício
+
+O proprietário pediu testar no seu computador antes de publicar online e solicitou o mesmo cenário com dados fictícios. Foi acrescentada uma demonstração isolada com 330 lojas fictícias, distribuídas nas sete etapas, três perfis e exemplos de planilhas. O banco das 330 lojas reais não é utilizado nem incluído no pacote.
+
+Arquivos e funcionamento:
+
+- `INICIAR-REVO.bat`: entrada por duplo clique no Windows x64, desde que seja utilizado o pacote portátil completo, extraído do ZIP. Abre o navegador automaticamente; mantém o processo local enquanto a janela estiver aberta.
+- `LEIA-ME-TESTE-LOCAL.txt`: instruções simples para o proprietário.
+- `scripts/offline-demo.mjs`: inicia a base fictícia e o servidor em modo estático de produção, exclusivamente em 127.0.0.1 e porta disponível. Ignora DB_PATH/IMPORT_DIR/HOST herdados para evitar mistura com a operação real. Não exige internet, npm ou configuração de tokens quando usado o pacote completo.
+- `server/demo-data.js`: prepara 330 lojas de teste e dados relacionados em pasta identificada. Nunca reseta uma base existente. Sem marcador de demonstração, uma pasta já ocupada é recusada.
+- `shared/demo-config.js`: identificadores e senha pública apenas dos usuários fictícios. A tela local apresenta botões Administrador, Operador e Visualizador para não exigir digitação. Não são credenciais reais; nunca use essa base em produção.
+- A configuração de demo é reconhecida pelo servidor apenas com REVO_LOCAL_DEMO=1; o iniciador força HOST=127.0.0.1 e o servidor recusa um HOST diferente nesse modo. O fluxo operacional normal continua autenticado como antes.
+- O processo comunica a porta pelo IPC; o iniciador abre o navegador local. O servidor também encerra quando perde o pai IPC. A senha/cookie de demonstração não desativa a segurança da base operacional.
+- `data-demo/` é ignorado pelo Git e protegido pela auditoria. Tem banco próprio, arquivos de exemplo e pasta própria de importação. Modificações de teste continuam na próxima abertura.
+- São geradas três planilhas: novas lojas fictícias, atualização sem duplicação e relatório fictício de 330 linhas/48 colunas. Uma loja tem responsável manualmente protegido para demonstrar a regra da automação.
+- `scripts/package-offline.py`: produz o ZIP Windows com código, dist, dependências de execução e Node.js portátil oficial. Verifica checksum do runtime, preserva licença, inclui checksums dos arquivos, recusa sobrescrever o ZIP e exclui banco real, dados-demo já gerados, planilhas privadas e senhas reais. O runtime não é enviado ao GitHub.
+
+A distribuição oficial Node.js 24 LTS para Windows x64 foi obtida com TLS verificado e conferida contra SHASUMS256 do próprio nodejs.org. O pacote final é um artefato separado; o ZIP do código no GitHub não inclui runtime, node_modules ou dist. Não diga ao proprietário que basta executar o .bat do ZIP somente de código.
+
+Validação acrescentada: quatro testes da base/iniciador (330 lojas e três perfis, continuidade de edições, proteção de pasta anterior e isolamento de variáveis herdadas) e teste de navegador da demonstração, bloqueando requisições externas. O total da suíte passa a 46 casos, incluindo os dois opcionais da planilha real. Use os resultados efetivamente executados na sua instância; a presença dos testes não prova que executaram.
+
+O ambiente de desenvolvimento é Linux, sem execução nativa de Windows. Não afirme que .bat ou node.exe foram executados aqui: foram testados os componentes JavaScript, a interface local, o isolamento e a extração do pacote. A abertura nativa final deve ser confirmada pelo proprietário no Windows. Não recomende desativar antivírus ou proteções do sistema.
+
+Após essa etapa, continuam pendentes a hospedagem pública, a sincronização automática de pastas pessoais e a PWA instalável. Nenhum site foi publicado por esse trabalho. Para continuar, confira o commit que contém esta seção e preserve a auditoria a cada salvamento.
+
+Resultado de validação desta extensão: os 46 testes foram executados com a planilha real e passaram; a demo passou na navegação com requisições externas bloqueadas, incluindo avanço de status, nota, importação, deduplicação, perfil de leitura e celular. O modo operacional anterior também passou no teste em navegador. A aplicação extraída do pacote candidato iniciou com suas próprias dependências. Esses resultados não equivalem à execução nativa do Windows, que continua pendente no computador do proprietário.

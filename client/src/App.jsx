@@ -7,10 +7,12 @@ import { Users, Config } from "./AdminPanels.jsx";
 import { api } from "./api.js";
 import { date } from "./dates.js";
 import { Brand } from "./Brand.jsx";
+import { DEMO_PROFILES, DEMO_PASSWORD } from "../../shared/demo-config.js";
 import { AutomationPanel } from "./AutomationPanel.jsx";
 export default function App() {
   const [user, setUser] = useState(null),
     [setup, setSetup] = useState(false),
+    [demoMode, setDemoMode] = useState(false),
     [ready, setReady] = useState(false),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
@@ -27,6 +29,7 @@ export default function App() {
   const detailRef = useRef(null),
     dirty = useRef(false);
   detailRef.current = detail;
+  const LoginContainer = demoMode ? "details" : "div";
   const canWrite = user && user.role !== "Visualizador";
   function notify(message) {
     setToast(message);
@@ -48,6 +51,7 @@ export default function App() {
     Promise.all([api("/setup"), api("/me").catch(() => null)])
       .then(([s, u]) => {
         setSetup(s.required);
+        setDemoMode(s.demo === true);
         setUser(u);
         setReady(true);
       })
@@ -132,59 +136,103 @@ export default function App() {
         </div>
         <div className="login-form">
           <div className="eyebrow">REVO / PROCESSOS</div>
-          <h2>{setup ? "Prepare sua operação" : "Bem-vindo de volta"}</h2>
+          <h2>
+            {demoMode
+              ? "Teste a esteira"
+              : setup
+                ? "Prepare sua operação"
+                : "Bem-vindo de volta"}
+          </h2>
           <p>
             {setup
               ? "Crie o primeiro administrador para começar."
               : "Entre para acompanhar a esteira de lojas."}
           </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const body = Object.fromEntries(new FormData(e.currentTarget));
-              act(async () => {
-                setUser(
-                  await api(setup ? "/setup" : "/login", {
-                    method: "POST",
-                    body,
-                  }),
-                );
-                setSetup(false);
-              });
-            }}
-          >
-            {setup && (
-              <>
-                <Field name="name" label="Seu nome" required />
-                <Field
-                  name="token"
-                  label="Token de configuração do servidor"
-                  type="password"
-                  required
-                />
-              </>
-            )}
-            <Field name="email" label="E-mail" type="email" required />
-            <Field
-              name="password"
-              label="Senha"
-              type="password"
-              minLength={setup ? 12 : undefined}
-              required
-            />
-            {error && (
-              <div role="alert" className="error">
-                {error}
-              </div>
-            )}
-            <button className="primary" disabled={busy}>
-              {busy
-                ? "Aguarde…"
-                : setup
-                  ? "Criar administrador →"
-                  : "Entrar na operação →"}
-            </button>
-          </form>
+          {demoMode && (
+            <div className="demo-entry">
+              <p>
+                330 lojas fictícias, separadas dos seus dados reais. Escolha um
+                perfil para entrar, sem digitar senha.
+              </p>
+              {error && (
+                <div role="alert" className="error">
+                  {error}
+                </div>
+              )}
+              {DEMO_PROFILES.map((profile) => (
+                <button
+                  className={profile.role === "Administrador" ? "primary" : ""}
+                  disabled={busy}
+                  key={profile.role}
+                  onClick={() =>
+                    act(async () =>
+                      setUser(
+                        await api("/login", {
+                          method: "POST",
+                          body: {
+                            email: profile.email,
+                            password: DEMO_PASSWORD,
+                          },
+                        }),
+                      ),
+                    )
+                  }
+                >
+                  Entrar como {profile.role}
+                </button>
+              ))}
+            </div>
+          )}
+          <LoginContainer className="login-options">
+            {demoMode && <summary>Entrar com outro usuário de teste</summary>}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const body = Object.fromEntries(new FormData(e.currentTarget));
+                act(async () => {
+                  setUser(
+                    await api(setup ? "/setup" : "/login", {
+                      method: "POST",
+                      body,
+                    }),
+                  );
+                  setSetup(false);
+                });
+              }}
+            >
+              {setup && (
+                <>
+                  <Field name="name" label="Seu nome" required />
+                  <Field
+                    name="token"
+                    label="Token de configuração do servidor"
+                    type="password"
+                    required
+                  />
+                </>
+              )}
+              <Field name="email" label="E-mail" type="email" required />
+              <Field
+                name="password"
+                label="Senha"
+                type="password"
+                minLength={setup ? 12 : undefined}
+                required
+              />
+              {error && (
+                <div role="alert" className="error">
+                  {error}
+                </div>
+              )}
+              <button className="primary" disabled={busy}>
+                {busy
+                  ? "Aguarde…"
+                  : setup
+                    ? "Criar administrador →"
+                    : "Entrar na operação →"}
+              </button>
+            </form>
+          </LoginContainer>
           <small>
             Acesso seguro · Permissões por perfil · Histórico de alterações
           </small>
@@ -252,11 +300,16 @@ export default function App() {
               <b>{user.name}</b>
               <small>{user.role}</small>
             </div>
-            <button title="Minha conta" onClick={() => setModal("account")}>
+            <button
+              title="Minha conta"
+              aria-label="Minha conta"
+              onClick={() => setModal("account")}
+            >
               ⚙
             </button>
             <button
               title="Sair"
+              aria-label="Sair"
               onClick={() =>
                 act(async () => {
                   await api("/logout", { method: "POST" });
@@ -274,6 +327,9 @@ export default function App() {
           <Brand decorative />
         </div>
         <header>
+          {demoMode && (
+            <span className="demo-badge">DEMONSTRAÇÃO · DADOS FICTÍCIOS</span>
+          )}
           <span>
             Workspace <span className="slash">/</span> <b>Processos</b>
           </span>

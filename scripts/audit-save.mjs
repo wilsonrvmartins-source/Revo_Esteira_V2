@@ -17,7 +17,7 @@ if (
 )
   process.exit(0);
 const privatePaths = paths.filter((p) =>
-  /(^|\/)(data|node_modules|attachments)(\/|$)|(^|\/)\.env(?:\.|$)|\.(?:sqlite(?:-wal|-shm)?|db|pem|key|xlsx)$/i.test(
+  /(^|\/)(data|data-demo|node_modules|attachments)(\/|$)|(^|\/)\.env(?:\.|$)|\.(?:sqlite(?:-wal|-shm)?|db|pem|key|xlsx|zip|bundle|webm)$/i.test(
     p,
   ),
 );

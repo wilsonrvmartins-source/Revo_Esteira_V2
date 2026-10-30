@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "createdAtUTC": "2026-10-30T23:23:12.988Z",
+  "createdAtSaoPaulo": "2026-10-30 20:23:12",
+  "repository": "wilsonrvmartins-source/Revo_Esteira_V2",
+  "targetBranch": "codex/revo-processos",
+  "baseCommit": "3f16df7a300f9a249978e0bdf5b282a19d6c1d34",
+  "preparedCodeTree": "6d4cd5a322dd25b923f4c0227c0ca9fd8b3ebe20",
+  "summary": "Demonstração offline isolada com 330 lojas fictícias, perfis de teste, iniciador Windows portátil e empacotamento; 46 testes e navegador aprovados, sem dados reais.",
+  "changedPaths": [
+    ".gitignore",
+    "INICIAR-REVO.bat",
+    "LEIA-ME-TESTE-LOCAL.txt",
+    "README.md",
+    "client/src/App.jsx",
+    "client/src/style.css",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.md",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.txt",
+    "package.json",
+    "scripts/audit-save.mjs",
+    "scripts/check-local-demo.mjs",
+    "scripts/offline-demo.mjs",
+    "scripts/package-offline.py",
+    "server/demo-data.js",
+    "server/index.js",
+    "shared/demo-config.js",
+    "tests/demo.test.js"
+  ],
+  "promptSHA256": "8eb2d00743c1db1f9701d3839b52156f29b0a797ac3ce68e58e1592984370d34",
+  "gitCommitAndPush": "O SHA final pertence ao commit que contém este arquivo. Confirmar no remoto depois do push; este registro não afirma envio antecipadamente."
+}

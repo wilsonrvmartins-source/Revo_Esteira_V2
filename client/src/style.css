@@ -1807,3 +1807,37 @@ header {
 .import-run li {
   overflow-wrap: anywhere;
 }
+.demo-entry {
+  margin: 24px 0;
+}
+.demo-entry button {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+  padding: 13px;
+}
+.demo-entry p {
+  font-size: 12px;
+}
+.demo-badge {
+  color: #216cdb !important;
+  background: #dbe9fc;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+}
+header:has(.demo-badge) {
+  height: auto;
+  min-height: 70px;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.login-options > summary {
+  font-size: 11px;
+  color: #526d90;
+  cursor: pointer;
+  margin: 18px 0;
+}
