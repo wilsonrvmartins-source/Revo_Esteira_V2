@@ -179,6 +179,20 @@ test("RBAC impede escrita do visualizador e administração do operador", async 
     ).status,
     403,
   );
+  assert.equal(
+    (await request("/automation/import", { cookie: viewer })).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request("/automation/import/files", {
+        cookie: viewer,
+        method: "POST",
+        body: new FormData(),
+      })
+    ).status,
+    403,
+  );
 });
 test("cadastro protege Merchant ID e começa em 0", async () => {
   const r = await request("/stores", {
@@ -517,3 +531,71 @@ test("backup consistente pode ser restaurado em um novo caminho sem sobrescrever
     }),
   );
 });
+
+test(
+  "pasta central recebe a mesma planilha de duas sessões sem duplicar e processa pelo monitor real",
+  { timeout: 25000 },
+  async () => {
+    assert.equal(
+      (await request("/automation/import", { cookie: operator })).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request("/automation/import", {
+          cookie: operator,
+          method: "PUT",
+          body: { enabled: false },
+        })
+      ).status,
+      403,
+    );
+    await request("/automation/import", {
+      method: "PUT",
+      body: { enabled: false },
+    });
+    const file = await xlsx([
+      ["Merchant ID", "Merchant Name", "Merchant Status"],
+      ["AUTO-CENTRAL", "Loja automática central", "Entrando"],
+    ]);
+    const send = (cookie) => {
+      const form = new FormData();
+      form.append("file", new Blob([file]), "central.xlsx");
+      return request("/automation/import/files", {
+        cookie,
+        method: "POST",
+        body: form,
+      });
+    };
+    const uploaded = await Promise.all([send(admin), send(operator)]);
+    assert.deepEqual(
+      uploaded.map((r) => r.status),
+      [202, 202],
+    );
+    assert.equal(
+      (await request("/stores")).data.some((s) => s.code === "AUTO-CENTRAL"),
+      false,
+    );
+    await request("/automation/import", {
+      method: "PUT",
+      body: { enabled: true },
+    });
+    await request("/automation/import/scan", { method: "POST" });
+    let found = false;
+    for (let i = 0; i < 150; i++) {
+      const all = (await request("/stores")).data;
+      if (all.some((s) => s.code === "AUTO-CENTRAL")) {
+        assert.equal(all.filter((s) => s.code === "AUTO-CENTRAL").length, 1);
+        found = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(found, "Monitor deve importar sem outra chamada de confirmação");
+    const repeated = await send(operator);
+    assert.equal(repeated.status, 200);
+    assert.equal(repeated.data.alreadyProcessed, true);
+    const history = (await request("/automation/import")).data.history;
+    assert.equal(history.filter((r) => r.result.created === 1).length, 1);
+  },
+);

@@ -63,6 +63,7 @@ export function Detail({
           ["notes", "Notas"],
           ["history", "Histórico"],
           ["source", "Planilha original"],
+          ...(d.latestSource ? [["latest", "Última planilha"]] : []),
         ].map(([t, l]) => (
           <button
             key={t}
@@ -200,23 +201,25 @@ export function Detail({
           ))}
         </>
       )}
-      {tab === "source" && (
+      {["source", "latest"].includes(tab) && (
         <>
           <p>
-            Dados preservados da primeira importação. Reimportações não
-            sobrescrevem este registro.
+            {tab === "source"
+              ? "Dados preservados da primeira importação. Reimportações não sobrescrevem este registro."
+              : "Dados de referência atualizados pela importação automática. O status operacional e as edições manuais são preservados."}
           </p>
           <div className="source-grid">
-            {Object.entries(d.source).map(([k, v]) => (
-              <div key={k}>
-                <small>{k.replaceAll("Delivery", "Processos")}</small>
-                <span>{String(v) || "—"}</span>
-              </div>
-            ))}
+            {Object.entries(tab === "latest" ? d.latestSource : d.source).map(
+              ([k, v]) => (
+                <div key={k}>
+                  <small>{k.replaceAll("Delivery", "Processos")}</small>
+                  <span>{String(v) || "—"}</span>
+                </div>
+              ),
+            )}
           </div>
-          {!Object.keys(d.source).length && (
-            <p>Cadastro manual, sem planilha de origem.</p>
-          )}
+          {!Object.keys(tab === "latest" ? d.latestSource : d.source)
+            .length && <p>Cadastro manual, sem planilha de origem.</p>}
         </>
       )}
     </>
@@ -224,6 +227,7 @@ export function Detail({
 }
 function Integration({ detail: d, canWrite, busy, save }) {
   const [search, setSearch] = useState({});
+  const source = d.latestSource || d.source;
   const current = (i) =>
     d.integrations.find((x) => x.section === i) || {
       state: "Pendente",
@@ -281,11 +285,11 @@ function Integration({ detail: d, canWrite, busy, save }) {
               <small>#{d.code}</small>
               {[
                 ["Responsável pela loja (BD)", d.owner],
-                ["Líder responsável", d.source["Merchant Owner Superior"]],
-                ["AOR", d.source["Aor Name"]],
-                ["Nome da marca", d.source["Brand Name"]],
-                ["Categoria", d.source["Primary Category"]],
-                ["Fornecedor PDV", d.source["Expected PDV (API) provider"]],
+                ["Líder responsável", source["Merchant Owner Superior"]],
+                ["AOR", source["Aor Name"]],
+                ["Nome da marca", source["Brand Name"]],
+                ["Categoria", source["Primary Category"]],
+                ["Fornecedor PDV", source["Expected PDV (API) provider"]],
               ].map(([k, v]) => (
                 <div key={k}>
                   <small>{k}</small>
@@ -334,9 +338,9 @@ function Integration({ detail: d, canWrite, busy, save }) {
                         (i === 2 && j === 0
                           ? d.method
                           : i === 3 && j === 1
-                            ? d.source["visible spu count"]
+                            ? source["visible spu count"]
                             : i === 4 && j === 0
-                              ? d.source["Merchant Activity Summary"]
+                              ? source["Merchant Activity Summary"]
                               : "") ||
                         ""
                       }

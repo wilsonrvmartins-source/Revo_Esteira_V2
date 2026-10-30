@@ -7,6 +7,7 @@ import { Users, Config } from "./AdminPanels.jsx";
 import { api } from "./api.js";
 import { date } from "./dates.js";
 import { Brand } from "./Brand.jsx";
+import { AutomationPanel } from "./AutomationPanel.jsx";
 export default function App() {
   const [user, setUser] = useState(null),
     [setup, setSetup] = useState(false),
@@ -212,6 +213,11 @@ export default function App() {
         >
           <span>⇅</span> Importar planilha
         </button>
+        {canWrite && (
+          <button className="nav-item" onClick={() => setModal("automation")}>
+            <span>↻</span>Importação automática
+          </button>
+        )}
         <a
           className="nav-item"
           href={
@@ -632,7 +638,8 @@ export default function App() {
                 : "Configuração de processos"
             }
             className={
-              "modal " + (["detail", "import"].includes(modal) ? "wide" : "")
+              "modal " +
+              (["detail", "import", "automation"].includes(modal) ? "wide" : "")
             }
           >
             <div className="modal-heading">
@@ -740,6 +747,9 @@ export default function App() {
                   );
                 }}
               />
+            )}
+            {modal === "automation" && (
+              <AutomationPanel isAdmin={user.role === "Administrador"} />
             )}
             {modal === "users" && <Users user={user} act={act} busy={busy} />}
             {modal === "account" && (

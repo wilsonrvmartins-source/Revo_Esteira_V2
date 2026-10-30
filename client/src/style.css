@@ -1760,3 +1760,50 @@ header {
     display: none;
   }
 }
+.automation-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.automation-status button {
+  font-size: 11px;
+}
+.automation-history {
+  max-height: 390px;
+  overflow: auto;
+}
+.import-run {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #ffffffb3;
+  padding: 15px;
+  margin: 10px 0;
+}
+.import-run-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.import-run-heading b {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.import-run > small {
+  font-size: 10px;
+  color: #8393a8;
+}
+.import-run p {
+  font-size: 11px;
+  margin: 10px 0 0;
+}
+.import-run details {
+  font-size: 11px;
+  margin-top: 10px;
+  line-height: 1.7;
+}
+.import-run li {
+  overflow-wrap: anywhere;
+}

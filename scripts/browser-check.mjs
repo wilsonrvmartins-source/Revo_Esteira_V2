@@ -40,6 +40,9 @@ const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },
 });
 const page = await context.newPage();
+const stopRecording = process.env.RECORD_DEMO
+  ? await (await import("./record-demo.mjs")).recordDemo(page)
+  : null;
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 try {
@@ -112,6 +115,66 @@ try {
     ),
     "Página não deve ter overflow horizontal",
   );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByRole("button", { name: /Importação automática/ }).click();
+  await page
+    .getByRole("heading", { name: "Importação automática", exact: true })
+    .waitFor();
+  await page.getByLabel("Pasta de origem", { exact: true }).waitFor();
+  const ExcelJS = (await import("exceljs")).default;
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Lojas");
+  sheet.addRow(["Merchant ID", "Merchant Name", "Merchant Status"]);
+  sheet.addRow(["DEMO-AUTO", "Loja importada automaticamente", "Entrando"]);
+  const buffer = await workbook.xlsx.writeBuffer();
+  if (process.env.RECORD_DEMO) await page.waitForTimeout(1200);
+  await page
+    .getByLabel("Arquivos Excel (.xlsx)", { exact: true })
+    .setInputFiles({
+      name: "demonstracao.xlsx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer,
+    });
+  await page
+    .getByRole("button", { name: "Enviar para a pasta", exact: true })
+    .click();
+  await page
+    .getByText("Concluído", { exact: true })
+    .waitFor({ timeout: 20000 });
+  await page.screenshot({ path: "/tmp/revo-automacao.png", fullPage: true });
+  if (process.env.RECORD_DEMO) await page.waitForTimeout(1800);
+  await page.getByRole("button", { name: "Fechar", exact: true }).click();
+  await page
+    .getByRole("heading", {
+      name: "Loja importada automaticamente",
+      exact: true,
+    })
+    .waitFor();
+  const repeated = await context.request.post(
+    "http://127.0.0.1:3327/api/automation/import/files",
+    {
+      multipart: {
+        file: {
+          name: "outro-computador.xlsx",
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          buffer,
+        },
+      },
+    },
+  );
+  assert.equal((await repeated.json()).alreadyProcessed, true);
+  assert.equal(
+    await page
+      .getByRole("heading", {
+        name: "Loja importada automaticamente",
+        exact: true,
+      })
+      .count(),
+    1,
+  );
+  if (process.env.RECORD_DEMO) await page.waitForTimeout(1800);
   for (const width of [320, 390, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(
@@ -146,9 +209,11 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: bootstrap, login, cadastro, transição 25%, integração, busca por etapa e layout de 320px a 1920px, com a palavra PROCESSOS inteira.",
+    "PASS: bootstrap, login, cadastro, transição 25%, integração, busca por etapa, importação automática e layout de 320px a 1920px, com a palavra PROCESSOS inteira.",
   );
 } finally {
+  if (stopRecording) await stopRecording();
+  await context.close();
   await browser.close();
   const done = new Promise((r) => server.once("exit", r));
   server.kill("SIGTERM");

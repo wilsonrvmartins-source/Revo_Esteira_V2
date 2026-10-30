@@ -3,13 +3,21 @@ import multer from "multer";
 import ExcelJS from "exceljs";
 import { randomBytes, createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
+import { writeFile, rename, mkdir } from "node:fs/promises";
 import { openDB, transaction, hashPassword, checkPassword } from "./db.js";
-import { validateZip } from "./xlsx-guard.js";
+import {
+  HEADERS as headers,
+  parseSpreadsheet,
+  rememberBaseline,
+  markManualOverrides,
+} from "./spreadsheet.js";
+import { createAutoImporter } from "./auto-import.js";
 import { STAGES, ROLES, FIELDS, validateStore, planImport } from "./domain.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
-const db = openDB(process.env.DB_PATH || resolve(root, "data/revo.sqlite"));
+const dbPath = process.env.DB_PATH || resolve(root, "data/revo.sqlite");
+const db = openDB(dbPath);
 const app = express(),
   clients = new Set(),
   imports = new Map(),
@@ -301,6 +309,11 @@ app.get("/api/stores/:id", (req, res) =>
         "SELECT notes.*,users.name AS author FROM notes JOIN users ON users.id=notes.user_id WHERE store_id=? ORDER BY notes.id DESC",
       )
       .all(req.params.id),
+    latestSource: JSON.parse(
+      db
+        .prepare("SELECT data FROM source_latest WHERE store_id=?")
+        .get(req.params.id)?.data || "null",
+    ),
     source: JSON.parse(
       db
         .prepare("SELECT data FROM source_data WHERE store_id=?")
@@ -330,6 +343,11 @@ app.patch("/api/stores/:id", write, (req, res) => {
     )
       throw fail(400, "Avance somente para a próxima etapa da sequência.");
     const updated = validateStore({ ...old, ...req.body, code: old.code });
+    markManualOverrides(
+      db,
+      old.id,
+      FIELDS.filter((k) => Object.hasOwn(req.body, k) && updated[k] !== old[k]),
+    );
     db.prepare(
       "UPDATE stores SET name=?,contact=?,method=?,owner=?,city=?,stage=?,version=version+1,updated_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=?",
     ).run(...FIELDS.map((k) => updated[k]), stage, old.id);
@@ -412,14 +430,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 3 * 1024 * 1024, files: 1 },
 });
-const headers = {
-  code: "Código da loja",
-  name: "Nome",
-  contact: "Contato",
-  method: "Método de aceitação",
-  owner: "Responsável",
-  city: "Cidade",
-};
 app.get("/api/template.xlsx", async (req, res) => {
   const w = new ExcelJS.Workbook(),
     s = w.addWorksheet("Lojas");
@@ -441,72 +451,7 @@ app.post(
   async (req, res) => {
     if (!req.file || !req.file.originalname.toLowerCase().endsWith(".xlsx"))
       throw fail(400, "Envie um arquivo .xlsx de até 3 MB.");
-    if (
-      req.file.buffer.length < 4 ||
-      req.file.buffer.readUInt32LE(0) !== 0x04034b50
-    )
-      throw fail(400, "Arquivo XLSX inválido.");
-    validateZip(req.file.buffer);
-    const w = new ExcelJS.Workbook();
-    try {
-      await w.xlsx.load(req.file.buffer);
-    } catch {
-      throw fail(400, "Não foi possível ler o arquivo Excel.");
-    }
-    const sheet = w.worksheets[0];
-    if (!sheet || sheet.rowCount > 2001 || sheet.columnCount > 100)
-      throw fail(400, "Use até 2.000 linhas e 100 colunas na primeira aba.");
-    const aliases = {
-      "Merchant ID": "code",
-      "Merchant Name": "name",
-      "Merchant Contact Phone": "contact",
-      "Merchant Owner": "owner",
-      "Second City Name": "city",
-      "Merchant Status": "initialStage",
-    };
-    const columns = {},
-      sourceColumns = {};
-    sheet.getRow(1).eachCell((cell, col) => {
-      const title = cell.text.trim();
-      if (title) sourceColumns[col] = title;
-      const key =
-        aliases[title] ||
-        Object.keys(headers).find((k) => headers[k] === title);
-      if (key) {
-        if (columns[key]) throw fail(400, "Coluna repetida: " + headers[key]);
-        columns[key] = col;
-      }
-    });
-    if (!columns.code || !columns.name)
-      throw fail(400, "Use o modelo: Código da loja e Nome são obrigatórios.");
-    const rows = [];
-    for (let i = 2; i <= sheet.rowCount; i++) {
-      const r = sheet.getRow(i);
-      if (!r.hasValues) continue;
-      const row = { source: {}, _row: i };
-      for (const [c, title] of Object.entries(sourceColumns)) {
-        const cell = r.getCell(Number(c));
-        if (cell.type === ExcelJS.ValueType.Formula)
-          throw fail(400, "Fórmulas não são aceitas na importação.");
-        row.source[title] = cell.text;
-      }
-      for (const [k, c] of Object.entries(columns)) {
-        const cell = r.getCell(c);
-        if (cell.type === ExcelJS.ValueType.Formula)
-          throw fail(400, "Fórmulas não são aceitas na importação.");
-        row[k] = cell.text;
-      }
-      if (columns.initialStage) {
-        const index = STAGES.findIndex(
-          (s) =>
-            s.toLocaleLowerCase("pt-BR") ===
-            String(row.initialStage).trim().toLocaleLowerCase("pt-BR"),
-        );
-        if (index < 0) throw fail(400, "Status desconhecido na linha " + i);
-        row.initialStage = index;
-      }
-      rows.push(row);
-    }
+    const { rows, columns } = await parseSpreadsheet(req.file.buffer);
     const plan = planImport(rows, new Set(stores().map((s) => s.code)));
     for (const [k, v] of imports) if (v.expires < Date.now()) imports.delete(k);
     if (imports.size >= 100)
@@ -515,7 +460,7 @@ app.post(
     imports.set(id, {
       user: req.user.id,
       plan,
-      columns: Object.keys(columns),
+      columns,
       versions: new Map(stores().map((s) => [s.code, s.version])),
       expires: Date.now() + 600000,
     });
@@ -525,7 +470,7 @@ app.post(
         ...line,
         item: line.item ? { ...line.item, source: undefined } : undefined,
       })),
-      columns: Object.keys(columns),
+      columns,
     });
   },
 );
@@ -576,6 +521,7 @@ app.post("/api/import/commit", write, (req, res) => {
               .join(",") +
             ",version=version+1,updated_at=strftime('%Y-%m-%d %H:%M:%f','now') WHERE id=?",
         ).run(...Object.values(changes), old.id);
+        markManualOverrides(db, old.id, Object.keys(changes));
         audit(req.user, old.id, "importação: atualização", {
           before: old,
           changes,
@@ -602,6 +548,7 @@ app.post("/api/import/commit", write, (req, res) => {
           name: s.name,
           stage: s.initialStage,
         });
+        rememberBaseline(db, id, s, entry.columns);
         result.created++;
       }
     }
@@ -642,14 +589,19 @@ app.get("/api/export.xlsx", async (req, res) => {
           ps.find((p) => p.store_id === s.id && p.stage === i)?.value || "",
       ),
     ]);
-  const originals = db.prepare("SELECT store_id,data FROM source_data").all();
   const selected = new Set(rows.map((s) => s.id));
-  const sourceRows = originals
-    .filter((s) => selected.has(s.store_id))
-    .map((s) => JSON.parse(s.data));
-  if (sourceRows.length) {
-    const sourceSheet = w.addWorksheet("Origem preservada");
-    const titles = [...new Set(sourceRows.flatMap(Object.keys))];
+  for (const [table, title] of [
+    ["source_data", "Origem preservada"],
+    ["source_latest", "Origem automática"],
+  ]) {
+    const sourceRows = db
+      .prepare("SELECT store_id,data FROM " + table)
+      .all()
+      .filter((s) => selected.has(s.store_id))
+      .map((s) => JSON.parse(s.data));
+    if (!sourceRows.length) continue;
+    const sourceSheet = w.addWorksheet(title),
+      titles = [...new Set(sourceRows.flatMap(Object.keys))];
     sourceSheet.addRow(titles);
     sourceRows.forEach((r) =>
       sourceSheet.addRow(titles.map((t) => String(r[t] ?? ""))),
@@ -727,6 +679,78 @@ app.patch("/api/users/:id", admin, (req, res) => {
   emit();
   res.json({ ok: true });
 });
+const automation = createAutoImporter({
+  db,
+  directory:
+    process.env.IMPORT_DIR || resolve(dirname(dbPath), "importacao/entrada"),
+  onChange: emit,
+});
+app.get("/api/automation/import", write, (req, res) =>
+  res.json(automation.status()),
+);
+app.put("/api/automation/import", admin, (req, res) => {
+  if (typeof req.body.enabled !== "boolean")
+    throw fail(400, "Informe se a automação deve ficar ativa.");
+  transaction(db, () => {
+    automation.setEnabled(req.body.enabled);
+    audit(req.user, null, "configuração de importação automática", {
+      enabled: req.body.enabled,
+    });
+  });
+  emit();
+  res.json(automation.status());
+});
+app.post(
+  "/api/automation/import/files",
+  write,
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file || !req.file.originalname.toLowerCase().endsWith(".xlsx"))
+      throw fail(400, "Envie uma planilha .xlsx.");
+    await parseSpreadsheet(req.file.buffer);
+    const digest = createHash("sha256").update(req.file.buffer).digest("hex");
+    const previous = db
+      .prepare("SELECT status FROM auto_import_files WHERE digest=?")
+      .get(digest);
+    if (previous)
+      return res.json({
+        queued: false,
+        alreadyProcessed: true,
+        status: previous.status,
+      });
+    const state = automation.status();
+    if (!state.ready)
+      throw fail(
+        409,
+        "É necessário um administrador ativo para executar a automação.",
+      );
+    const stem =
+      req.file.originalname
+        .replace(/\.xlsx$/i, "")
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .slice(0, 90) || "planilha";
+    const name =
+      stem + "-" + Date.now() + "-" + randomBytes(6).toString("hex") + ".xlsx";
+    await mkdir(state.folder, { recursive: true, mode: 0o700 });
+    const temporary = resolve(state.folder, name + ".uploading"),
+      destination = resolve(state.folder, name);
+    await writeFile(temporary, req.file.buffer, { flag: "wx", mode: 0o600 });
+    await rename(temporary, destination);
+    audit(req.user, null, "planilha enviada à pasta automática", {
+      filename: name,
+      digest,
+    });
+    await automation.scan();
+    emit();
+    res
+      .status(202)
+      .json({ queued: true, filename: name, enabled: state.enabled });
+  },
+);
+app.post("/api/automation/import/scan", write, async (req, res) => {
+  await automation.scan();
+  res.json(automation.status());
+});
 app.use("/api", (req, res) =>
   res.status(404).json({ error: "Rota não encontrada." }),
 );
@@ -757,6 +781,7 @@ app.use((err, req, res, next) => {
         : err.message || "Erro inesperado.",
     });
 });
+automation.start();
 const server = app.listen(
   Number(process.env.PORT || 3000),
   process.env.HOST || "127.0.0.1",
@@ -766,6 +791,7 @@ const server = app.listen(
     ),
 );
 process.on("SIGTERM", () => {
+  automation.stop();
   for (const c of clients) c.res.end();
   server.close(() => {
     db.close();
