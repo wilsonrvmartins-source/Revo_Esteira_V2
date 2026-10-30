@@ -45,6 +45,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto("http://127.0.0.1:3327");
   await page.getByRole("heading", { name: "Prepare sua operação" }).waitFor();
+  await page.screenshot({ path: "/tmp/revo-login.png", fullPage: true });
   await page.getByLabel("Seu nome").fill("Equipe de teste");
   await page
     .getByLabel("Token de configuração do servidor")
@@ -111,9 +112,41 @@ try {
     ),
     "Página não deve ter overflow horizontal",
   );
+  for (const width of [320, 390, 768, 1024, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(
+      () =>
+        new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r)),
+        ),
+    );
+    const layout = await page.evaluate(() => {
+      const issues = [];
+      if (document.documentElement.scrollWidth > innerWidth)
+        issues.push("rolagem horizontal da página");
+      for (const brand of document.querySelectorAll(".brand-lockup")) {
+        const subtitle = brand.querySelector(".brand-subtitle");
+        const range = document.createRange();
+        range.selectNodeContents(subtitle);
+        const text = range.getBoundingClientRect();
+        const owner =
+          brand.closest("aside") || brand.closest(".page-watermark");
+        const area = owner.getBoundingClientRect();
+        if (
+          text.left < Math.max(0, area.left) - 1 ||
+          text.right > Math.min(innerWidth, area.right) + 1 ||
+          text.top < area.top - 1 ||
+          text.bottom > area.bottom + 1
+        )
+          issues.push("PROCESSOS cortado");
+      }
+      return issues;
+    });
+    assert.deepEqual(layout, [], `Layout e marca completos em ${width}px`);
+  }
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: bootstrap, login, cadastro, transição 25%, integração, busca por etapa e layout móvel.",
+    "PASS: bootstrap, login, cadastro, transição 25%, integração, busca por etapa e layout de 320px a 1920px, com a palavra PROCESSOS inteira.",
   );
 } finally {
   await browser.close();

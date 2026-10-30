@@ -110,7 +110,9 @@ export default function App() {
   if (!user)
     return (
       <div className="login">
+        <Brand className="login-watermark" decorative />
         <div className="login-brand">
+          <Brand className="login-side-watermark" decorative />
           <Brand />
           <span>OPERAÇÃO EM MOVIMENTO</span>
           <h1>
@@ -262,6 +264,9 @@ export default function App() {
         </div>
       </aside>
       <div className="workspace">
+        <div className="page-watermark" aria-hidden="true">
+          <Brand decorative />
+        </div>
         <header>
           <span>
             Workspace <span className="slash">/</span> <b>Processos</b>

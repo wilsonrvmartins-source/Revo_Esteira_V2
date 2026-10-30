@@ -1,12 +1,14 @@
 :root {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   color: #10243e;
-  background: #f7f9fc;
+  background: #eaf1fb;
   font-synthesis: none;
   --blue: #216cdb;
   --navy: #0d203a;
   --muted: #7a8799;
-  --line: #e6ebf2;
+  --line: #d5dfed;
+  --page-bg: #eaf1fb;
+  --sidebar-bg: #d5e2f4;
 }
 * {
   box-sizing: border-box;
@@ -1518,7 +1520,7 @@ small.muted {
 
 /* Modelo aprovado: arte original intacta; transparência apenas na exibição. */
 aside {
-  background: #eaf1fb;
+  background: var(--sidebar-bg);
   overflow: hidden;
 }
 aside > :not(.sidebar-watermark) {
@@ -1528,11 +1530,11 @@ aside > :not(.sidebar-watermark) {
 .sidebar-watermark {
   position: absolute;
   z-index: 0;
-  width: 210%;
+  width: 80%;
   max-width: none;
   height: auto;
-  left: -42%;
-  top: 36%;
+  left: 10%;
+  top: 40%;
   opacity: 0.085;
   pointer-events: none;
   user-select: none;
@@ -1557,9 +1559,11 @@ aside > :not(.sidebar-watermark) {
     position: relative;
   }
   .sidebar-watermark {
-    width: 90%;
-    left: 45%;
-    top: 25%;
+    width: 120px;
+    left: auto;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 0.055;
   }
 }
@@ -1599,7 +1603,7 @@ aside > :not(.sidebar-watermark) {
   width: 157px;
 }
 .brand-lockup.sidebar-watermark {
-  width: 210%;
+  width: 80%;
 }
 .login-brand .brand-lockup {
   width: 200px;
@@ -1613,10 +1617,146 @@ aside > :not(.sidebar-watermark) {
     width: 110px;
   }
   .brand-lockup.sidebar-watermark {
-    width: 90%;
+    width: 120px;
   }
   .login-brand .brand-lockup {
     width: 120px;
     margin-bottom: 15px;
+  }
+}
+
+/* Fundo da marca em toda a interface, sempre contido na área disponível. */
+.workspace {
+  position: relative;
+  isolation: isolate;
+  background: var(--page-bg);
+}
+.workspace > header,
+.workspace > main {
+  position: relative;
+  z-index: 1;
+}
+.page-watermark {
+  position: fixed;
+  z-index: 0;
+  inset: 0 0 0 242px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  pointer-events: none;
+  user-select: none;
+}
+.page-watermark .brand-lockup {
+  width: min(78%, 900px);
+  opacity: 0.055;
+}
+header {
+  background: #eaf1fbe6;
+}
+.nav-label {
+  color: #637891;
+}
+.nav-item {
+  color: #445d7b;
+}
+.nav-item.active {
+  color: white;
+}
+.stat,
+.timeline,
+.table-wrap,
+.store-card,
+.empty {
+  background: #ffffffcc;
+}
+.kanban-column {
+  background: #dee8f6b8;
+}
+.modal {
+  background: #f4f8ff;
+}
+.login {
+  position: relative;
+  isolation: isolate;
+  background: var(--page-bg);
+}
+.login-watermark {
+  position: absolute;
+  z-index: 0;
+  width: min(78%, 1000px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.045;
+  pointer-events: none;
+  user-select: none;
+}
+.login-brand {
+  background: #d5e2f4e6;
+  color: var(--navy);
+}
+.login-brand > span {
+  color: #4476b8;
+}
+.login-brand p {
+  color: #526d90;
+}
+.login-brand .brand-lockup {
+  background: transparent;
+  padding: 0;
+}
+.login-form {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 1100px) {
+  .page-watermark {
+    left: 205px;
+  }
+}
+@media (max-width: 720px) {
+  .page-watermark {
+    left: 0;
+    padding: 20px;
+  }
+  .page-watermark .brand-lockup {
+    width: 100%;
+  }
+  .login-watermark {
+    width: calc(100% - 40px);
+    top: 55%;
+  }
+  .login-brand .brand-lockup {
+    position: relative;
+    z-index: 1;
+  }
+}
+.login-watermark {
+  width: min(42%, 600px);
+  left: 75%;
+}
+.login-brand:after {
+  display: none;
+}
+.login-brand .brand-lockup.login-side-watermark {
+  position: absolute;
+  width: 76%;
+  left: 12%;
+  top: 68%;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  opacity: 0.055;
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 720px) {
+  .login-watermark {
+    width: calc(100% - 40px);
+    left: 50%;
+  }
+  .login-brand .brand-lockup.login-side-watermark {
+    display: none;
   }
 }
