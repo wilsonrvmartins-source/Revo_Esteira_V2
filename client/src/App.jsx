@@ -6,6 +6,7 @@ import { Import } from "./ImportPanel.jsx";
 import { Users, Config } from "./AdminPanels.jsx";
 import { api } from "./api.js";
 import { date } from "./dates.js";
+import { Brand } from "./Brand.jsx";
 export default function App() {
   const [user, setUser] = useState(null),
     [setup, setSetup] = useState(false),
@@ -110,7 +111,7 @@ export default function App() {
     return (
       <div className="login">
         <div className="login-brand">
-          <img src="/brand.svg" alt="REVO Processos" />
+          <Brand />
           <span>OPERAÇÃO EM MOVIMENTO</span>
           <h1>
             Cada etapa,
@@ -190,8 +191,9 @@ export default function App() {
   return (
     <div className="app">
       <aside>
+        <Brand className="sidebar-watermark" decorative />
         <a className="brand" href="/" aria-label="REVO Processos">
-          <img src="/brand.svg" alt="REVO Processos" />
+          <Brand />
         </a>
         <div className="nav-label">WORKSPACE</div>
         <button className="nav-item active" onClick={() => setModal(null)}>

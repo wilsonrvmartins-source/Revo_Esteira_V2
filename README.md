@@ -103,3 +103,9 @@ A separação entre autenticação, domínio, persistência, importação e fron
 Próximas melhorias recomendadas após observar o uso real: prazos por etapa e alertas de atraso; indicadores por responsável/líder; regras obrigatórias antes de avançar; anexos com armazenamento privado; login corporativo/MFA e recuperação de senha; backups externos agendados com teste de restauração; paginação para bases maiores. Não foi inventada uma regra de negócio para bloquear etapas por campos vazios.
 
 A versão atual não faz sincronização com a plataforma que originou a planilha, envio de e-mails, geolocalização ou execução de campanhas. As colunas desses serviços são dados de referência. Antes de publicação: configurar HTTPS e armazenamento/backup externo; revisar o fluxo com a equipe. Nenhuma disponibilidade permanente é prometida por um processo rodando nesta sessão.
+
+## Identidade visual
+
+O modelo de menu aprovado usa fundo azul-claro e a logo original como marca d’água com opacidade de 8,5%. O efeito é aplicado somente por CSS e não modifica a arte. A logo principal, a marca d’água e a tela de acesso preservam o desenho REVO do Ativo 10. Por pedido posterior do proprietário, o subtítulo exibido é PROCESSOS: o layout oculta apenas o subtítulo antigo do arquivo e apresenta o novo nome como texto, sem redesenhar o símbolo ou modificar o arquivo original. O nome da aplicação é REVO Processos.
+
+O PDF recebido foi preservado sem alterações em `client/public/branding/revo-original.pdf`. `brand.svg` é a conversão vetorial para exibição no navegador, sem redesenho, troca de cores ou deformação. O ícone da aba utiliza a redução original do Ativo 14, também convertida para SVG sem redesenho.
