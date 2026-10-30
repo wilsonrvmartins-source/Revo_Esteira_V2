@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "createdAtUTC": "2026-10-30T23:02:41.497Z",
+  "createdAtSaoPaulo": "2026-10-30 20:02:41",
+  "repository": "wilsonrvmartins-source/Revo_Esteira_V2",
+  "targetBranch": "codex/revo-processos",
+  "baseCommit": "b65274b81fabf968fad1586d67ab1401e4fd6d6d",
+  "preparedCodeTree": "418165cf669ca6a7dfcbf66a27feb250894dff16",
+  "summary": "Prompt integral desde v0 e auditoria automática dos salvamentos; três testes específicos aprovados; aplicação preservada.",
+  "changedPaths": [
+    ".githooks/pre-commit",
+    "AGENTS.md",
+    "README.md",
+    "docs/auditoria/AUDITORIA.md",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.md",
+    "docs/continuidade/PROMPT_COMPLETO_REVO_PROCESSOS.txt",
+    "package-lock.json",
+    "package.json",
+    "scripts/audit-save.mjs",
+    "scripts/install-audit-hook.mjs",
+    "scripts/save.mjs",
+    "tests/audit.test.js"
+  ],
+  "promptSHA256": "a78021632af8354a5ce6b5370df79fbd8a011a66203a4a70dd65f82b31ad6375",
+  "gitCommitAndPush": "O SHA final pertence ao commit que contém este arquivo. Confirmar no remoto depois do push; este registro não afirma envio antecipadamente."
+}

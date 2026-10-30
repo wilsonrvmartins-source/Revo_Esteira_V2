@@ -12,9 +12,12 @@
     "start": "NODE_ENV=production node server/index.js",
     "test": "node --test tests/*.test.js",
     "backup": "node server/backup.js",
-    "format:check": "prettier --check server client/src tests scripts vite.config.js README.md",
+    "format:check": "prettier --check server client/src tests scripts vite.config.js README.md AGENTS.md docs/continuidade/*.md docs/auditoria/*.md",
     "test:browser": "node scripts/browser-check.mjs",
-    "prepare-owner": "node server/provision.js"
+    "prepare-owner": "node server/provision.js",
+    "audit:setup": "node scripts/install-audit-hook.mjs",
+    "save": "node scripts/save.mjs",
+    "postinstall": "node scripts/install-audit-hook.mjs"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
